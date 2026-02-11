@@ -1,10 +1,20 @@
 export type UserRole = 'admin' | 'cashier' | 'manager';
 
+export interface UserPermissions {
+  pos: boolean;
+  inventory: boolean;
+  analytics: boolean;
+  admin: boolean;
+}
+
 export interface Profile {
   id: string;
   email: string;
-  role: UserRole;
+  username: string;
   full_name: string;
+  role: UserRole;
+  permissions: UserPermissions;
+  created_at?: string;
 }
 
 export interface Product {

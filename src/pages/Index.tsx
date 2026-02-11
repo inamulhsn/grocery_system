@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { LayoutDashboard, ShoppingCart, Package, Users, Settings, TrendingUp } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
@@ -9,6 +9,19 @@ import FeatureToggles from '@/components/admin/FeatureToggles';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
+  // Mocking a logged-in user with specific permissions
+  // In a real app, this would come from your Auth context/Supabase
+  const [currentUser] = useState({
+    full_name: 'Admin User',
+    role: 'admin',
+    permissions: {
+      pos: true,
+      inventory: true,
+      analytics: true,
+      admin: true
+    }
+  });
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
       {/* Sidebar / Navigation */}
@@ -23,11 +36,11 @@ const Index = () => {
           
           <div className="flex items-center gap-4">
             <div className="text-right hidden md:block">
-              <p className="text-sm font-bold">Admin User</p>
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Store Manager</p>
+              <p className="text-sm font-bold">{currentUser.full_name}</p>
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser.role}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600">
-              AD
+              {currentUser.full_name.split(' ').map(n => n[0]).join('')}
             </div>
           </div>
         </div>
@@ -37,18 +50,26 @@ const Index = () => {
         <Tabs defaultValue="pos" className="space-y-6">
           <div className="flex items-center justify-between">
             <TabsList className="bg-white border border-slate-200 p-1 h-12 rounded-xl shadow-sm">
-              <TabsTrigger value="pos" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <ShoppingCart className="mr-2" size={18} /> POS
-              </TabsTrigger>
-              <TabsTrigger value="inventory" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <Package className="mr-2" size={18} /> Inventory
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <LayoutDashboard className="mr-2" size={18} /> Analytics
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <Settings className="mr-2" size={18} /> Admin
-              </TabsTrigger>
+              {currentUser.permissions.pos && (
+                <TabsTrigger value="pos" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                  <ShoppingCart className="mr-2" size={18} /> POS
+                </TabsTrigger>
+              )}
+              {currentUser.permissions.inventory && (
+                <TabsTrigger value="inventory" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                  <Package className="mr-2" size={18} /> Inventory
+                </TabsTrigger>
+              )}
+              {currentUser.permissions.analytics && (
+                <TabsTrigger value="analytics" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                  <LayoutDashboard className="mr-2" size={18} /> Analytics
+                </TabsTrigger>
+              )}
+              {currentUser.permissions.admin && (
+                <TabsTrigger value="settings" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                  <Settings className="mr-2" size={18} /> Admin
+                </TabsTrigger>
+              )}
             </TabsList>
             
             <div className="hidden lg:flex items-center gap-6 text-sm">
@@ -64,28 +85,36 @@ const Index = () => {
             </div>
           </div>
 
-          <TabsContent value="pos" className="mt-0 outline-none">
-            <POSInterface />
-          </TabsContent>
+          {currentUser.permissions.pos && (
+            <TabsContent value="pos" className="mt-0 outline-none">
+              <POSInterface />
+            </TabsContent>
+          )}
 
-          <TabsContent value="inventory" className="mt-0 outline-none">
-            <InventoryManager />
-          </TabsContent>
+          {currentUser.permissions.inventory && (
+            <TabsContent value="inventory" className="mt-0 outline-none">
+              <InventoryManager />
+            </TabsContent>
+          )}
           
-          <TabsContent value="analytics" className="mt-0 outline-none">
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 text-center py-20">
-              <TrendingUp size={48} className="mx-auto text-slate-300 mb-4" />
-              <h2 className="text-2xl font-bold mb-2 text-slate-800">Sales Analytics</h2>
-              <p className="text-slate-500 max-w-md mx-auto">
-                Real-time insights into your store's performance will appear here once sales data is available.
-              </p>
-            </div>
-          </TabsContent>
+          {currentUser.permissions.analytics && (
+            <TabsContent value="analytics" className="mt-0 outline-none">
+              <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 text-center py-20">
+                <TrendingUp size={48} className="mx-auto text-slate-300 mb-4" />
+                <h2 className="text-2xl font-bold mb-2 text-slate-800">Sales Analytics</h2>
+                <p className="text-slate-500 max-w-md mx-auto">
+                  Real-time insights into your store's performance will appear here once sales data is available.
+                </p>
+              </div>
+            </TabsContent>
+          )}
 
-          <TabsContent value="settings" className="mt-0 outline-none space-y-8">
-            <UserManagement />
-            <FeatureToggles />
-          </TabsContent>
+          {currentUser.permissions.admin && (
+            <TabsContent value="settings" className="mt-0 outline-none space-y-8">
+              <UserManagement />
+              <FeatureToggles />
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>
