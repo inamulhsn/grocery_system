@@ -12,7 +12,8 @@ interface RefillListProps {
 }
 
 const RefillList = ({ products }: RefillListProps) => {
-  const lowStockProducts = products.filter(p => p.stock_quantity < 20);
+  // Filter products where stock is at or below their specific threshold
+  const lowStockProducts = products.filter(p => p.stock_quantity <= p.refill_threshold);
 
   if (lowStockProducts.length === 0) {
     return (
@@ -21,7 +22,7 @@ const RefillList = ({ products }: RefillListProps) => {
           <PackagePlus size={32} />
         </div>
         <h2 className="text-xl font-bold text-slate-800">Inventory is Healthy</h2>
-        <p className="text-slate-500">All products have sufficient stock levels.</p>
+        <p className="text-slate-500">All products have sufficient stock levels based on their thresholds.</p>
       </div>
     );
   }
@@ -31,7 +32,7 @@ const RefillList = ({ products }: RefillListProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Refill Required</h2>
-          <p className="text-slate-500">Products with stock levels below 20 units</p>
+          <p className="text-slate-500">Products that have reached their custom refill thresholds</p>
         </div>
         <Badge variant="destructive" className="px-3 py-1 animate-pulse">
           {lowStockProducts.length} Items Low
@@ -45,9 +46,12 @@ const RefillList = ({ products }: RefillListProps) => {
               <div className="w-10 h-10 rounded-xl bg-white border border-red-100 flex items-center justify-center text-red-500">
                 <AlertTriangle size={20} />
               </div>
-              <Badge variant="outline" className="bg-white text-red-600 border-red-200">
-                {product.stock_quantity} {product.unit} left
-              </Badge>
+              <div className="text-right">
+                <Badge variant="outline" className="bg-white text-red-600 border-red-200 font-black">
+                  {product.stock_quantity} {product.unit} left
+                </Badge>
+                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Threshold: {product.refill_threshold}</p>
+              </div>
             </div>
             
             <div className="mb-6">

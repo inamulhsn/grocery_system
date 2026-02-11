@@ -12,9 +12,9 @@ import { Product, Sale } from '@/types/grocery';
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([
-    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, unit: 'kg', discount_percentage: 0 },
-    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, unit: 'pcs', discount_percentage: 10 },
-    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, unit: 'pcs', discount_percentage: 0 },
+    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, refill_threshold: 20, unit: 'kg', discount_percentage: 0 },
+    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, refill_threshold: 25, unit: 'pcs', discount_percentage: 10 },
+    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, refill_threshold: 15, unit: 'pcs', discount_percentage: 0 },
   ]);
 
   const [sales, setSales] = useState<Sale[]>([]);

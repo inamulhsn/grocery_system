@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Package, Plus, Search, Barcode, Edit3, Trash2, Percent, Box } from 'lucide-react';
+import { Package, Plus, Search, Barcode, Edit3, Trash2, Percent, Box, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -38,6 +38,7 @@ const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps)
     price: 0,
     cost_price: 0,
     stock_quantity: 0,
+    refill_threshold: 10,
     unit: 'pcs',
     discount_percentage: 0
   });
@@ -56,6 +57,7 @@ const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps)
       price: 0,
       cost_price: 0,
       stock_quantity: 0,
+      refill_threshold: 10,
       unit: 'pcs',
       discount_percentage: 0
     });
@@ -114,7 +116,7 @@ const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps)
             <TableHeader className="bg-slate-50">
               <TableRow>
                 <TableHead className="font-bold">Product</TableHead>
-                <TableHead className="font-bold">Stock</TableHead>
+                <TableHead className="font-bold">Available Stock</TableHead>
                 <TableHead className="font-bold">Price</TableHead>
                 <TableHead className="font-bold">Discount</TableHead>
                 <TableHead className="font-bold text-right">Actions</TableHead>
@@ -131,10 +133,15 @@ const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps)
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <Badge variant={product.stock_quantity < 20 ? "destructive" : "secondary"} className="rounded-md w-fit">
+                      <Badge 
+                        variant={product.stock_quantity <= product.refill_threshold ? "destructive" : "secondary"} 
+                        className="rounded-md w-fit font-black text-sm"
+                      >
                         {product.stock_quantity} {product.unit}
                       </Badge>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase">Available</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">
+                        Refill at: {product.refill_threshold}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -243,18 +250,26 @@ const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps)
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-              <div className="flex items-center justify-between mb-2">
-                <Label className="flex items-center gap-2 text-primary"><Box size={16} /> Current Stock Level</Label>
-                <Badge variant="outline" className="bg-white">{formData.stock_quantity} {formData.unit}</Badge>
+            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-primary"><Box size={16} /> Current Stock</Label>
+                <Input 
+                  type="number" 
+                  value={formData.stock_quantity} 
+                  onChange={e => setFormData({...formData, stock_quantity: parseInt(e.target.value)})} 
+                />
               </div>
-              <Input 
-                type="number" 
-                value={formData.stock_quantity} 
-                onChange={e => setFormData({...formData, stock_quantity: parseInt(e.target.value)})} 
-                placeholder="Enter available quantity"
-              />
-              <p className="text-[10px] text-slate-400 mt-2 font-medium uppercase tracking-wider">This will be the starting stock for this product</p>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-orange-600"><AlertCircle size={16} /> Refill Threshold</Label>
+                <Input 
+                  type="number" 
+                  value={formData.refill_threshold} 
+                  onChange={e => setFormData({...formData, refill_threshold: parseInt(e.target.value)})} 
+                />
+              </div>
+              <p className="col-span-2 text-[10px] text-slate-400 mt-1 font-medium uppercase tracking-wider">
+                Product will show in "Refill" list when stock drops to or below the threshold.
+              </p>
             </div>
           </div>
           <DialogFooter>

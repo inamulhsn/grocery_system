@@ -25,6 +25,7 @@ export interface Product {
   price: number;
   cost_price: number;
   stock_quantity: number;
+  refill_threshold: number;
   unit: string;
   discount_percentage: number;
   barcode_url?: string;
