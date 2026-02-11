@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
+import { TrendingUp, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -13,7 +13,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
+    identifier: '', // This will hold either username or email
     password: ''
   });
 
@@ -23,15 +23,22 @@ const Login = () => {
 
     // Get persisted admin profile
     const savedAdmin = localStorage.getItem('grocery_admin_profile');
-    const admin = savedAdmin ? JSON.parse(savedAdmin) : { username: 'admin', password: 'admin' };
+    const admin = savedAdmin ? JSON.parse(savedAdmin) : { 
+      username: 'admin', 
+      email: 'admin@grocerypro.com', 
+      password: 'admin' 
+    };
 
     // Mock login logic
     setTimeout(() => {
-      if (formData.username === admin.username && formData.password === admin.password) {
+      const isCorrectIdentifier = formData.identifier === admin.username || formData.identifier === admin.email;
+      const isCorrectPassword = formData.password === admin.password;
+
+      if (isCorrectIdentifier && isCorrectPassword) {
         showSuccess("Welcome back to GroceryPro!");
         navigate('/');
       } else {
-        showError("Invalid credentials. Please check your username and password.");
+        showError("Invalid credentials. Please check your username/email and password.");
       }
       setIsLoading(false);
     }, 1000);
@@ -53,16 +60,16 @@ const Login = () => {
         <Card className="p-8 border-none shadow-2xl shadow-slate-200/60 rounded-3xl bg-white">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="identifier">Username or Email</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <Input 
-                  id="username"
+                  id="identifier"
                   type="text" 
-                  placeholder="admin" 
+                  placeholder="admin or admin@grocerypro.com" 
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:border-primary transition-all"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  value={formData.identifier}
+                  onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                   required
                 />
               </div>
