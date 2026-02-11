@@ -1,10 +1,17 @@
 export type UserRole = 'admin' | 'cashier' | 'manager';
 
+export interface SectionPermissions {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
 export interface UserPermissions {
-  pos: boolean;
-  inventory: boolean;
-  analytics: boolean;
-  admin: boolean;
+  pos: SectionPermissions;
+  inventory: SectionPermissions;
+  analytics: SectionPermissions;
+  admin: SectionPermissions;
 }
 
 export interface Profile {

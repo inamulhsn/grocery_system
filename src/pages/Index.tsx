@@ -8,7 +8,7 @@ import UserManagement from '@/components/admin/UserManagement';
 import SalesHistory from '@/components/sales/SalesHistory';
 import RefillList from '@/components/inventory/RefillList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Product, Sale } from '@/types/grocery';
+import { Product, Sale, Profile } from '@/types/grocery';
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([
@@ -37,10 +37,18 @@ const Index = () => {
     setProducts(updatedProducts);
   };
 
-  const [currentUser] = useState({
+  const [currentUser] = useState<Profile>({
+    id: '1',
+    email: 'admin@grocerypro.com',
+    username: 'admin',
     full_name: 'Admin User',
     role: 'admin',
-    permissions: { pos: true, inventory: true, analytics: true, admin: true }
+    permissions: { 
+      pos: { view: true, create: true, edit: true, delete: true },
+      inventory: { view: true, create: true, edit: true, delete: true },
+      analytics: { view: true, create: true, edit: true, delete: true },
+      admin: { view: true, create: true, edit: true, delete: true }
+    }
   });
 
   const totalDailySales = sales.reduce((sum, sale) => sum + sale.total_amount, 0);

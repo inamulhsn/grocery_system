@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { UserPlus, Shield, Trash2, MoreVertical, Key, CheckCircle2, XCircle, Edit2, Settings2 } from 'lucide-react';
+import { UserPlus, Shield, Trash2, MoreVertical, Key, Edit2, Settings2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,23 +15,25 @@ import {
   DialogTitle, 
   DialogTrigger,
   DialogFooter
-} from "@/components/ui/dialog";
+} from "@/dialog";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
+} from "@/dropdown-menu";
 import { 
   Select, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/components/ui/select";
-import { Profile, UserRole, UserPermissions } from '@/types/grocery';
+} from "@/select";
+import { Profile, UserRole, UserPermissions, SectionPermissions } from '@/types/grocery';
 import { showSuccess } from '@/utils/toast';
 import FeatureToggles from './FeatureToggles';
+
+const defaultSectionPerms: SectionPermissions = { view: false, create: false, edit: false, delete: false };
 
 const UserManagement = () => {
   const [users, setUsers] = useState<Profile[]>([
@@ -41,7 +43,12 @@ const UserManagement = () => {
       username: 'admin',
       full_name: 'Admin User', 
       role: 'admin',
-      permissions: { pos: true, inventory: true, analytics: true, admin: true }
+      permissions: { 
+        pos: { view: true, create: true, edit: true, delete: true },
+        inventory: { view: true, create: true, edit: true, delete: true },
+        analytics: { view: true, create: true, edit: true, delete: true },
+        admin: { view: true, create: true, edit: true, delete: true }
+      }
     },
     { 
       id: '2', 
@@ -49,16 +56,13 @@ const UserManagement = () => {
       username: 'sarah_c',
       full_name: 'Sarah Cashier', 
       role: 'cashier',
-      permissions: { pos: true, inventory: false, analytics: false, admin: false }
-    },
-    { 
-      id: '3', 
-      email: 'mike.m@grocerypro.com', 
-      username: 'mike_m',
-      full_name: 'Mike Manager', 
-      role: 'manager',
-      permissions: { pos: true, inventory: true, analytics: true, admin: false }
-    },
+      permissions: { 
+        pos: { view: true, create: true, edit: false, delete: false },
+        inventory: { view: true, create: false, edit: false, delete: false },
+        analytics: { view: false, create: false, edit: false, delete: false },
+        admin: { view: false, create: false, edit: false, delete: false }
+      }
+    }
   ]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -69,10 +73,14 @@ const UserManagement = () => {
     email: '',
     password: '',
     role: 'cashier' as UserRole,
-    permissions: { pos: true, inventory: false, analytics: false, admin: false }
+    permissions: { 
+      pos: { ...defaultSectionPerms, view: true },
+      inventory: { ...defaultSectionPerms },
+      analytics: { ...defaultSectionPerms },
+      admin: { ...defaultSectionPerms }
+    } as UserPermissions
   });
 
-  // Filter out the main admin from the display list
   const displayUsers = users.filter(u => u.username !== 'admin');
 
   const openAddDialog = () => {
@@ -83,7 +91,12 @@ const UserManagement = () => {
       email: '',
       password: '',
       role: 'cashier',
-      permissions: { pos: true, inventory: false, analytics: false, admin: false }
+      permissions: { 
+        pos: { ...defaultSectionPerms, view: true, create: true },
+        inventory: { ...defaultSectionPerms },
+        analytics: { ...defaultSectionPerms },
+        admin: { ...defaultSectionPerms }
+      }
     });
     setIsDialogOpen(true);
   };
@@ -94,9 +107,9 @@ const UserManagement = () => {
       full_name: user.full_name,
       username: user.username,
       email: user.email,
-      password: '', // Don't show existing password
+      password: '',
       role: user.role,
-      permissions: { ...user.permissions }
+      permissions: JSON.parse(JSON.stringify(user.permissions))
     });
     setIsDialogOpen(true);
   };
@@ -116,18 +129,17 @@ const UserManagement = () => {
     setIsDialogOpen(false);
   };
 
-  const handleDeleteUser = (id: string) => {
-    setUsers(users.filter(u => u.id !== id));
-    showSuccess("Staff member removed.");
-  };
-
-  const getRoleColor = (role: UserRole) => {
-    switch (role) {
-      case 'admin': return 'bg-purple-100 text-purple-700 border-purple-200';
-      case 'manager': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'cashier': return 'bg-green-100 text-green-700 border-green-200';
-      default: return 'bg-slate-100 text-slate-700';
-    }
+  const togglePermission = (section: keyof UserPermissions, action: keyof SectionPermissions) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: {
+        ...prev.permissions,
+        [section]: {
+          ...prev.permissions[section],
+          [action]: !prev.permissions[section][action]
+        }
+      }
+    }));
   };
 
   return (
@@ -135,7 +147,7 @@ const UserManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Staff Management</h2>
-          <p className="text-slate-500">Manage accounts and individual access permissions</p>
+          <p className="text-slate-500">Manage accounts and granular CRUD permissions</p>
         </div>
         
         <div className="flex gap-3">
@@ -173,14 +185,9 @@ const UserManagement = () => {
                   <h3 className="font-bold text-slate-800">{user.full_name}</h3>
                   <p className="text-xs text-slate-500">@{user.username} • {user.email}</p>
                   <div className="flex gap-2 mt-2">
-                    <Badge className={`capitalize px-2 py-0.5 rounded-md border ${getRoleColor(user.role)}`}>
+                    <Badge className="capitalize px-2 py-0.5 rounded-md border bg-green-50 text-green-700 border-green-200">
                       {user.role}
                     </Badge>
-                    <div className="flex gap-1">
-                      {Object.entries(user.permissions).map(([key, val]) => val && (
-                        <div key={key} className="w-2 h-2 rounded-full bg-green-500" title={key} />
-                      ))}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -201,7 +208,7 @@ const UserManagement = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="flex items-center gap-2 text-red-600 focus:text-red-600"
-                      onClick={() => handleDeleteUser(user.id)}
+                      onClick={() => setUsers(users.filter(u => u.id !== user.id))}
                     >
                       <Trash2 size={14} /> Delete Account
                     </DropdownMenuItem>
@@ -214,56 +221,66 @@ const UserManagement = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingUser ? 'Edit Staff Member' : 'Create New Staff Account'}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} placeholder="John Doe" />
+                <Label>Full Name</Label>
+                <Input value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} placeholder="John Doe" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input id="username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} placeholder="johndoe" />
+                <Label>Username</Label>
+                <Input value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} placeholder="johndoe" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="john@grocerypro.com" />
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Email Address</Label>
+                <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="john@grocerypro.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select value={formData.role} onValueChange={(v: UserRole) => setFormData({...formData, role: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="cashier">Cashier</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{editingUser ? 'New Password (leave blank to keep current)' : 'Initial Password'}</Label>
-              <Input id="password" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" />
-            </div>
-            <div className="space-y-2">
-              <Label>Primary Role</Label>
-              <Select value={formData.role} onValueChange={(v: UserRole) => setFormData({...formData, role: v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="cashier">Cashier</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-3 pt-2">
-              <Label className="text-sm font-bold text-slate-500 uppercase tracking-wider">Access Permissions</Label>
-              <div className="grid grid-cols-2 gap-4">
-                {(Object.keys(formData.permissions) as Array<keyof UserPermissions>).map((perm) => (
-                  <div key={perm} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={`edit-${perm}`} 
-                      checked={formData.permissions[perm]} 
-                      onCheckedChange={(checked) => setFormData({
-                        ...formData, 
-                        permissions: {...formData.permissions, [perm]: !!checked}
-                      })}
-                    />
-                    <Label htmlFor={`edit-${perm}`} className="capitalize">{perm}</Label>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-slate-800 font-bold border-b pb-2">
+                <Lock size={18} className="text-primary" />
+                <h3>Granular Access Permissions</h3>
+              </div>
+              
+              <div className="space-y-4">
+                {(Object.keys(formData.permissions) as Array<keyof UserPermissions>).map((section) => (
+                  <div key={section} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label className="capitalize font-black text-slate-700 tracking-wide">{section} Section</Label>
+                    </div>
+                    <div className="grid grid-cols-4 gap-4">
+                      {(['view', 'create', 'edit', 'delete'] as Array<keyof SectionPermissions>).map((action) => (
+                        <div key={action} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`${section}-${action}`} 
+                            checked={formData.permissions[section][action]} 
+                            onCheckedChange={() => togglePermission(section, action)}
+                          />
+                          <Label htmlFor={`${section}-${action}`} className="capitalize text-xs font-medium cursor-pointer">
+                            {action}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
