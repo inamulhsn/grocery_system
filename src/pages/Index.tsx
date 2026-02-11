@@ -11,13 +11,15 @@ import {
   TrendingUp, 
   Receipt, 
   ClipboardList,
-  LogOut
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
 import UserManagement from '@/components/admin/UserManagement';
 import SalesHistory from '@/components/sales/SalesHistory';
 import RefillList from '@/components/inventory/RefillList';
+import AdminSecurity from '@/components/admin/AdminSecurity';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Product, Sale, Profile } from '@/types/grocery';
@@ -40,6 +42,25 @@ const Index = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [currentUser, setCurrentUser] = useState<Profile>(() => {
+    const saved = localStorage.getItem('grocery_admin_profile');
+    return saved ? JSON.parse(saved) : {
+      id: '1',
+      email: 'admin@grocerypro.com',
+      username: 'admin',
+      password: 'admin',
+      full_name: 'Admin User',
+      role: 'admin',
+      phone_number: '+1234567890',
+      permissions: { 
+        pos: { view: true, create: true, edit: true, delete: true },
+        inventory: { view: true, create: true, edit: true, delete: true },
+        analytics: { view: true, create: true, edit: true, delete: true },
+        admin: { view: true, create: true, edit: true, delete: true }
+      }
+    };
+  });
+
   useEffect(() => {
     localStorage.setItem('grocery_products', JSON.stringify(products));
   }, [products]);
@@ -47,6 +68,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem('grocery_sales', JSON.stringify(sales));
   }, [sales]);
+
+  useEffect(() => {
+    localStorage.setItem('grocery_admin_profile', JSON.stringify(currentUser));
+  }, [currentUser]);
 
   const handleCompleteSale = (newSale: Sale) => {
     setSales(prev => [newSale, ...prev]);
@@ -66,24 +91,14 @@ const Index = () => {
     setProducts(updatedProducts);
   };
 
+  const handleUpdateAdminProfile = (updatedProfile: Profile) => {
+    setCurrentUser(updatedProfile);
+  };
+
   const handleLogout = () => {
     showSuccess("Logged out successfully");
     navigate('/login');
   };
-
-  const [currentUser] = useState<Profile>({
-    id: '1',
-    email: 'admin@grocerypro.com',
-    username: 'admin',
-    full_name: 'Admin User',
-    role: 'admin',
-    permissions: { 
-      pos: { view: true, create: true, edit: true, delete: true },
-      inventory: { view: true, create: true, edit: true, delete: true },
-      analytics: { view: true, create: true, edit: true, delete: true },
-      admin: { view: true, create: true, edit: true, delete: true }
-    }
-  });
 
   const totalDailySales = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
 
@@ -174,7 +189,8 @@ const Index = () => {
             <RefillList products={products} />
           </TabsContent>
 
-          <TabsContent value="settings" className="mt-0 outline-none">
+          <TabsContent value="settings" className="mt-0 outline-none space-y-6">
+            <AdminSecurity adminProfile={currentUser} onUpdate={handleUpdateAdminProfile} />
             <UserManagement />
           </TabsContent>
         </Tabs>

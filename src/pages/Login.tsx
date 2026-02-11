@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { TrendingUp, Mail, Lock, ArrowRight, Loader2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -13,7 +13,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
 
@@ -21,15 +21,17 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Get persisted admin profile
+    const savedAdmin = localStorage.getItem('grocery_admin_profile');
+    const admin = savedAdmin ? JSON.parse(savedAdmin) : { username: 'admin', password: 'admin' };
+
     // Mock login logic
     setTimeout(() => {
-      // For demo purposes, we accept admin@grocerypro.com with any password
-      // but we'll suggest 'admin' as the standard one.
-      if (formData.email === 'admin@grocerypro.com' && formData.password.length > 0) {
+      if (formData.username === admin.username && formData.password === admin.password) {
         showSuccess("Welcome back to GroceryPro!");
         navigate('/');
       } else {
-        showError("Invalid credentials. Try admin@grocerypro.com");
+        showError("Invalid credentials. Please check your username and password.");
       }
       setIsLoading(false);
     }, 1000);
@@ -51,16 +53,16 @@ const Login = () => {
         <Card className="p-8 border-none shadow-2xl shadow-slate-200/60 rounded-3xl bg-white">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="username">Username</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <Input 
-                  id="email"
-                  type="email" 
-                  placeholder="admin@grocerypro.com" 
+                  id="username"
+                  type="text" 
+                  placeholder="admin" 
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:border-primary transition-all"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   required
                 />
               </div>
@@ -83,7 +85,6 @@ const Login = () => {
                   required
                 />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Hint: Use 'admin' as password</p>
             </div>
 
             <Button 

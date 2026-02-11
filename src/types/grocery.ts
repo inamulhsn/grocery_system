@@ -21,6 +21,8 @@ export interface Profile {
   full_name: string;
   role: UserRole;
   permissions: UserPermissions;
+  phone_number?: string;
+  password?: string;
   created_at?: string;
 }
 
