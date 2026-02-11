@@ -23,11 +23,13 @@ const Login = () => {
 
     // Mock login logic
     setTimeout(() => {
-      if (formData.email && formData.password) {
+      // For demo purposes, we accept admin@grocerypro.com with any password
+      // but we'll suggest 'admin' as the standard one.
+      if (formData.email === 'admin@grocerypro.com' && formData.password.length > 0) {
         showSuccess("Welcome back to GroceryPro!");
         navigate('/');
       } else {
-        showError("Please enter your credentials");
+        showError("Invalid credentials. Try admin@grocerypro.com");
       }
       setIsLoading(false);
     }, 1000);
@@ -81,6 +83,7 @@ const Login = () => {
                   required
                 />
               </div>
+              <p className="text-[10px] text-slate-400 mt-1">Hint: Use 'admin' as password</p>
             </div>
 
             <Button 
