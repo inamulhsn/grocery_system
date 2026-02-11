@@ -1,23 +1,52 @@
 "use client";
 
-import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Users, Settings, TrendingUp, Receipt, ClipboardList } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  ShoppingCart, 
+  Package, 
+  Users, 
+  Settings, 
+  TrendingUp, 
+  Receipt, 
+  ClipboardList,
+  LogOut
+} from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
 import UserManagement from '@/components/admin/UserManagement';
 import SalesHistory from '@/components/sales/SalesHistory';
 import RefillList from '@/components/inventory/RefillList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Product, Sale, Profile } from '@/types/grocery';
+import { showSuccess } from '@/utils/toast';
 
 const Index = () => {
-  const [products, setProducts] = useState<Product[]>([
-    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, refill_threshold: 20, unit: 'kg', discount_percentage: 0 },
-    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, refill_threshold: 25, unit: 'pcs', discount_percentage: 10 },
-    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, refill_threshold: 15, unit: 'pcs', discount_percentage: 0 },
-  ]);
+  const navigate = useNavigate();
+  
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('grocery_products');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, refill_threshold: 20, unit: 'kg', discount_percentage: 0 },
+      { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, refill_threshold: 25, unit: 'pcs', discount_percentage: 10 },
+      { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, refill_threshold: 15, unit: 'pcs', discount_percentage: 0 },
+    ];
+  });
 
-  const [sales, setSales] = useState<Sale[]>([]);
+  const [sales, setSales] = useState<Sale[]>(() => {
+    const saved = localStorage.getItem('grocery_sales');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('grocery_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('grocery_sales', JSON.stringify(sales));
+  }, [sales]);
 
   const handleCompleteSale = (newSale: Sale) => {
     setSales(prev => [newSale, ...prev]);
@@ -35,6 +64,11 @@ const Index = () => {
 
   const handleUpdateProducts = (updatedProducts: Product[]) => {
     setProducts(updatedProducts);
+  };
+
+  const handleLogout = () => {
+    showSuccess("Logged out successfully");
+    navigate('/login');
   };
 
   const [currentUser] = useState<Profile>({
@@ -64,14 +98,28 @@ const Index = () => {
             <h1 className="text-xl font-black tracking-tight">Grocery<span className="text-primary">Pro</span></h1>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-              <p className="text-sm font-bold">{currentUser.full_name}</p>
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser.role}</p>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden md:block">
+                <p className="text-sm font-bold">{currentUser.full_name}</p>
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser.role}</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600">
+                {currentUser.full_name.split(' ').map(n => n[0]).join('')}
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600">
-              {currentUser.full_name.split(' ').map(n => n[0]).join('')}
-            </div>
+            
+            <div className="w-px h-8 bg-slate-200" />
+            
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handleLogout}
+              className="rounded-xl font-bold flex items-center gap-2 px-4"
+            >
+              <LogOut size={16} />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
