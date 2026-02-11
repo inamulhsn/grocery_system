@@ -5,12 +5,10 @@ import { LayoutDashboard, ShoppingCart, Package, Users, Settings, TrendingUp } f
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
 import UserManagement from '@/components/admin/UserManagement';
-import FeatureToggles from '@/components/admin/FeatureToggles';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   // Mocking a logged-in user with specific permissions
-  // In a real app, this would come from your Auth context/Supabase
   const [currentUser] = useState({
     full_name: 'Admin User',
     role: 'admin',
@@ -110,9 +108,8 @@ const Index = () => {
           )}
 
           {currentUser.permissions.admin && (
-            <TabsContent value="settings" className="mt-0 outline-none space-y-8">
+            <TabsContent value="settings" className="mt-0 outline-none">
               <UserManagement />
-              <FeatureToggles />
             </TabsContent>
           )}
         </Tabs>
