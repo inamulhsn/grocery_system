@@ -20,9 +20,10 @@ import UserManagement from '@/components/admin/UserManagement';
 import SalesHistory from '@/components/sales/SalesHistory';
 import RefillList from '@/components/inventory/RefillList';
 import AdminSecurity from '@/components/admin/AdminSecurity';
+import BrandingSettings from '@/components/admin/BrandingSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Product, Sale, Profile } from '@/types/grocery';
+import { Product, Sale, Profile, SystemSettings } from '@/types/grocery';
 import { showSuccess } from '@/utils/toast';
 
 const Index = () => {
@@ -61,6 +62,14 @@ const Index = () => {
     };
   });
 
+  const [branding, setBranding] = useState<SystemSettings>(() => {
+    const saved = localStorage.getItem('grocery_branding');
+    return saved ? JSON.parse(saved) : {
+      systemName: 'GroceryPro',
+      logoUrl: ''
+    };
+  });
+
   useEffect(() => {
     localStorage.setItem('grocery_products', JSON.stringify(products));
   }, [products]);
@@ -72,6 +81,10 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem('grocery_admin_profile', JSON.stringify(currentUser));
   }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('grocery_branding', JSON.stringify(branding));
+  }, [branding]);
 
   const handleCompleteSale = (newSale: Sale) => {
     setSales(prev => [newSale, ...prev]);
@@ -95,6 +108,10 @@ const Index = () => {
     setCurrentUser(updatedProfile);
   };
 
+  const handleUpdateBranding = (updatedBranding: SystemSettings) => {
+    setBranding(updatedBranding);
+  };
+
   const handleLogout = () => {
     showSuccess("Logged out successfully");
     navigate('/login');
@@ -107,10 +124,23 @@ const Index = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
-              <TrendingUp size={24} />
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20 overflow-hidden">
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                <TrendingUp size={24} />
+              )}
             </div>
-            <h1 className="text-xl font-black tracking-tight">Grocery<span className="text-primary">Pro</span></h1>
+            <h1 className="text-xl font-black tracking-tight">
+              {branding.systemName.includes(' ') ? (
+                <>
+                  {branding.systemName.split(' ')[0]}
+                  <span className="text-primary">{branding.systemName.split(' ').slice(1).join(' ')}</span>
+                </>
+              ) : (
+                branding.systemName
+              )}
+            </h1>
           </div>
           
           <div className="flex items-center gap-6">
@@ -190,7 +220,10 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="settings" className="mt-0 outline-none space-y-6">
-            <AdminSecurity adminProfile={currentUser} onUpdate={handleUpdateAdminProfile} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AdminSecurity adminProfile={currentUser} onUpdate={handleUpdateAdminProfile} />
+              <BrandingSettings settings={branding} onUpdate={handleUpdateBranding} />
+            </div>
             <UserManagement />
           </TabsContent>
         </Tabs>

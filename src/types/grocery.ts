@@ -59,6 +59,11 @@ export interface Sale {
   items: SaleItem[];
 }
 
+export interface SystemSettings {
+  systemName: string;
+  logoUrl: string;
+}
+
 export interface FeatureToggles {
   showProfitMargin: boolean;
   enableBarcodePrinting: boolean;
