@@ -15,20 +15,20 @@ import {
   DialogTitle, 
   DialogTrigger,
   DialogFooter
-} from "@/dialog";
+} from "@/components/ui/dialog";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger 
-} from "@/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { 
   Select, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/select";
+} from "@/components/ui/select";
 import { Profile, UserRole, UserPermissions, SectionPermissions } from '@/types/grocery';
 import { showSuccess } from '@/utils/toast';
 import FeatureToggles from './FeatureToggles';
