@@ -3,6 +3,9 @@
 import React from 'react';
 import { LayoutDashboard, ShoppingCart, Package, Users, Settings, TrendingUp } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
+import InventoryManager from '@/components/inventory/InventoryManager';
+import UserManagement from '@/components/admin/UserManagement';
+import FeatureToggles from '@/components/admin/FeatureToggles';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
@@ -66,13 +69,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="inventory" className="mt-0 outline-none">
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 text-center py-20">
-              <Package size={48} className="mx-auto text-slate-300 mb-4" />
-              <h2 className="text-2xl font-bold mb-2 text-slate-800">Inventory Management</h2>
-              <p className="text-slate-500 max-w-md mx-auto">
-                Connect Supabase to start managing your products, stock levels, and barcode generation.
-              </p>
-            </div>
+            <InventoryManager />
           </TabsContent>
           
           <TabsContent value="analytics" className="mt-0 outline-none">
@@ -83,6 +80,11 @@ const Index = () => {
                 Real-time insights into your store's performance will appear here once sales data is available.
               </p>
             </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-0 outline-none space-y-8">
+            <UserManagement />
+            <FeatureToggles />
           </TabsContent>
         </Tabs>
       </main>
