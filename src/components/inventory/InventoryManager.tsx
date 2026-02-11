@@ -1,30 +1,95 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Package, Plus, Search, Barcode, Edit3, Trash2 } from 'lucide-react';
+import { Package, Plus, Search, Barcode, Edit3, Trash2, Percent, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { Product } from '@/types/grocery';
 import BarcodeGenerator from './BarcodeGenerator';
+import { showSuccess } from '@/utils/toast';
 
-const InventoryManager = () => {
+interface InventoryManagerProps {
+  products: Product[];
+  onUpdateProducts: (products: Product[]) => void;
+}
+
+const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  // Mock data for inventory
-  const [products] = useState<Product[]>([
-    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, unit: 'kg' },
-    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, unit: 'pcs' },
-    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, unit: 'pcs' },
-  ]);
+  const [formData, setFormData] = useState<Partial<Product>>({
+    name: '',
+    sku: '',
+    category: '',
+    price: 0,
+    cost_price: 0,
+    stock_quantity: 0,
+    unit: 'pcs',
+    discount_percentage: 0
+  });
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     p.sku.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const openAddDialog = () => {
+    setEditingProduct(null);
+    setFormData({
+      name: '',
+      sku: `GR-${Math.floor(100 + Math.random() * 900)}`,
+      category: '',
+      price: 0,
+      cost_price: 0,
+      stock_quantity: 0,
+      unit: 'pcs',
+      discount_percentage: 0
+    });
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({ ...product });
+    setIsDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    if (editingProduct) {
+      const updatedProducts = products.map(p => 
+        p.id === editingProduct.id ? { ...p, ...formData } as Product : p
+      );
+      onUpdateProducts(updatedProducts);
+      showSuccess("Product updated successfully");
+    } else {
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        ...formData,
+      } as Product;
+      onUpdateProducts([...products, newProduct]);
+      showSuccess("New product added to inventory");
+    }
+    setIsDialogOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    onUpdateProducts(products.filter(p => p.id !== id));
+    showSuccess("Product removed from inventory");
+  };
 
   return (
     <div className="space-y-6">
@@ -38,7 +103,7 @@ const InventoryManager = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl px-6">
+        <Button onClick={openAddDialog} className="bg-primary hover:bg-primary/90 text-white rounded-xl px-6">
           <Plus className="mr-2" size={18} /> Add New Product
         </Button>
       </div>
@@ -49,9 +114,9 @@ const InventoryManager = () => {
             <TableHeader className="bg-slate-50">
               <TableRow>
                 <TableHead className="font-bold">Product</TableHead>
-                <TableHead className="font-bold">SKU</TableHead>
                 <TableHead className="font-bold">Stock</TableHead>
                 <TableHead className="font-bold">Price</TableHead>
+                <TableHead className="font-bold">Discount</TableHead>
                 <TableHead className="font-bold text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -61,23 +126,46 @@ const InventoryManager = () => {
                   <TableCell>
                     <div>
                       <p className="font-bold text-slate-800">{product.name}</p>
-                      <p className="text-xs text-slate-500">{product.category}</p>
+                      <p className="text-xs text-slate-500">{product.sku} • {product.category}</p>
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-slate-600">{product.sku}</TableCell>
                   <TableCell>
-                    <Badge variant={product.stock_quantity < 20 ? "destructive" : "secondary"} className="rounded-md">
-                      {product.stock_quantity} {product.unit}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={product.stock_quantity < 20 ? "destructive" : "secondary"} className="rounded-md w-fit">
+                        {product.stock_quantity} {product.unit}
+                      </Badge>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Available</span>
+                    </div>
                   </TableCell>
-                  <TableCell className="font-bold">${product.price.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-bold">${product.price.toFixed(2)}</span>
+                      {product.discount_percentage > 0 && (
+                        <span className="text-[10px] text-green-600 font-bold">
+                          Net: ${(product.price * (1 - product.discount_percentage / 100)).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {product.discount_percentage > 0 ? (
+                      <Badge className="bg-green-100 text-green-700 border-green-200">
+                        {product.discount_percentage}% OFF
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-300 text-xs">No discount</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => setSelectedProduct(product)}>
                         <Barcode size={16} className="text-slate-400" />
                       </Button>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(product)}>
                         <Edit3 size={16} className="text-slate-400" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id)}>
+                        <Trash2 size={16} className="text-red-400" />
                       </Button>
                     </div>
                   </TableCell>
@@ -111,6 +199,72 @@ const InventoryManager = () => {
           )}
         </Card>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Product Name</Label>
+                <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Fresh Apples" />
+              </div>
+              <div className="space-y-2">
+                <Label>SKU / Barcode</Label>
+                <Input value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="GR-001" />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Input value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} placeholder="Fruits" />
+              </div>
+              <div className="space-y-2">
+                <Label>Unit (kg, pcs, etc.)</Label>
+                <Input value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} placeholder="pcs" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Cost Price ($)</Label>
+                <Input type="number" value={formData.cost_price} onChange={e => setFormData({...formData, cost_price: parseFloat(e.target.value)})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Selling Price ($)</Label>
+                <Input type="number" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1 text-green-600"><Percent size={14} /> Discount (%)</Label>
+                <Input type="number" value={formData.discount_percentage} onChange={e => setFormData({...formData, discount_percentage: parseFloat(e.target.value)})} />
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="flex items-center gap-2 text-primary"><Box size={16} /> Current Stock Level</Label>
+                <Badge variant="outline" className="bg-white">{formData.stock_quantity} {formData.unit}</Badge>
+              </div>
+              <Input 
+                type="number" 
+                value={formData.stock_quantity} 
+                onChange={e => setFormData({...formData, stock_quantity: parseInt(e.target.value)})} 
+                placeholder="Enter available quantity"
+              />
+              <p className="text-[10px] text-slate-400 mt-2 font-medium uppercase tracking-wider">This will be the starting stock for this product</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="bg-primary text-white">
+              {editingProduct ? 'Update Product' : 'Add to Inventory'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

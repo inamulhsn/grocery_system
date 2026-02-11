@@ -12,18 +12,15 @@ import { Product, Sale } from '@/types/grocery';
 
 const Index = () => {
   const [products, setProducts] = useState<Product[]>([
-    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, unit: 'kg' },
-    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, unit: 'pcs' },
-    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, unit: 'pcs' },
+    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, unit: 'kg', discount_percentage: 0 },
+    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, unit: 'pcs', discount_percentage: 10 },
+    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, unit: 'pcs', discount_percentage: 0 },
   ]);
 
   const [sales, setSales] = useState<Sale[]>([]);
 
   const handleCompleteSale = (newSale: Sale) => {
-    // Record the sale
     setSales(prev => [newSale, ...prev]);
-
-    // Deduct stock
     setProducts(prevProducts => prevProducts.map(product => {
       const soldItem = newSale.items.find(item => item.product_id === product.id);
       if (soldItem) {
@@ -34,6 +31,10 @@ const Index = () => {
       }
       return product;
     }));
+  };
+
+  const handleUpdateProducts = (updatedProducts: Product[]) => {
+    setProducts(updatedProducts);
   };
 
   const [currentUser] = useState({
@@ -110,7 +111,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="inventory" className="mt-0 outline-none">
-            <InventoryManager products={products} />
+            <InventoryManager products={products} onUpdateProducts={handleUpdateProducts} />
           </TabsContent>
 
           <TabsContent value="refill" className="mt-0 outline-none">

@@ -26,6 +26,7 @@ export interface Product {
   cost_price: number;
   stock_quantity: number;
   unit: string;
+  discount_percentage: number;
   barcode_url?: string;
 }
 
@@ -35,6 +36,7 @@ export interface SaleItem {
   product_name: string;
   quantity: number;
   unit_price: number;
+  discount_amount: number;
   total_price: number;
 }
 
