@@ -1,28 +1,51 @@
 "use client";
 
 import React, { useState } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Users, Settings, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, Settings, TrendingUp, Receipt, ClipboardList } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
 import UserManagement from '@/components/admin/UserManagement';
+import SalesHistory from '@/components/sales/SalesHistory';
+import RefillList from '@/components/inventory/RefillList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Product, Sale } from '@/types/grocery';
 
 const Index = () => {
-  // Mocking a logged-in user with specific permissions
+  const [products, setProducts] = useState<Product[]>([
+    { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, unit: 'kg' },
+    { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, unit: 'pcs' },
+    { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, unit: 'pcs' },
+  ]);
+
+  const [sales, setSales] = useState<Sale[]>([]);
+
+  const handleCompleteSale = (newSale: Sale) => {
+    // Record the sale
+    setSales(prev => [newSale, ...prev]);
+
+    // Deduct stock
+    setProducts(prevProducts => prevProducts.map(product => {
+      const soldItem = newSale.items.find(item => item.product_id === product.id);
+      if (soldItem) {
+        return {
+          ...product,
+          stock_quantity: Math.max(0, product.stock_quantity - soldItem.quantity)
+        };
+      }
+      return product;
+    }));
+  };
+
   const [currentUser] = useState({
     full_name: 'Admin User',
     role: 'admin',
-    permissions: {
-      pos: true,
-      inventory: true,
-      analytics: true,
-      admin: true
-    }
+    permissions: { pos: true, inventory: true, analytics: true, admin: true }
   });
+
+  const totalDailySales = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      {/* Sidebar / Navigation */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -47,71 +70,56 @@ const Index = () => {
       <main className="max-w-[1600px] mx-auto p-6">
         <Tabs defaultValue="pos" className="space-y-6">
           <div className="flex items-center justify-between">
-            <TabsList className="bg-white border border-slate-200 p-1 h-12 rounded-xl shadow-sm">
-              {currentUser.permissions.pos && (
-                <TabsTrigger value="pos" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                  <ShoppingCart className="mr-2" size={18} /> POS
-                </TabsTrigger>
-              )}
-              {currentUser.permissions.inventory && (
-                <TabsTrigger value="inventory" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                  <Package className="mr-2" size={18} /> Inventory
-                </TabsTrigger>
-              )}
-              {currentUser.permissions.analytics && (
-                <TabsTrigger value="analytics" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                  <LayoutDashboard className="mr-2" size={18} /> Analytics
-                </TabsTrigger>
-              )}
-              {currentUser.permissions.admin && (
-                <TabsTrigger value="settings" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                  <Settings className="mr-2" size={18} /> Admin
-                </TabsTrigger>
-              )}
+            <TabsList className="bg-white border border-slate-200 p-1 h-12 rounded-xl shadow-sm overflow-x-auto">
+              <TabsTrigger value="pos" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                <ShoppingCart className="mr-2" size={18} /> POS
+              </TabsTrigger>
+              <TabsTrigger value="sales" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                <Receipt className="mr-2" size={18} /> Sales
+              </TabsTrigger>
+              <TabsTrigger value="inventory" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                <Package className="mr-2" size={18} /> Inventory
+              </TabsTrigger>
+              <TabsTrigger value="refill" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                <ClipboardList className="mr-2" size={18} /> Refill
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                <Settings className="mr-2" size={18} /> Admin
+              </TabsTrigger>
             </TabsList>
             
             <div className="hidden lg:flex items-center gap-6 text-sm">
               <div className="flex flex-col">
                 <span className="text-slate-400 font-medium">Daily Sales</span>
-                <span className="font-black text-lg">$1,240.50</span>
+                <span className="font-black text-lg">${totalDailySales.toFixed(2)}</span>
               </div>
               <div className="w-px h-8 bg-slate-200" />
               <div className="flex flex-col">
                 <span className="text-slate-400 font-medium">Orders</span>
-                <span className="font-black text-lg">42</span>
+                <span className="font-black text-lg">{sales.length}</span>
               </div>
             </div>
           </div>
 
-          {currentUser.permissions.pos && (
-            <TabsContent value="pos" className="mt-0 outline-none">
-              <POSInterface />
-            </TabsContent>
-          )}
+          <TabsContent value="pos" className="mt-0 outline-none">
+            <POSInterface products={products} onCompleteSale={handleCompleteSale} />
+          </TabsContent>
 
-          {currentUser.permissions.inventory && (
-            <TabsContent value="inventory" className="mt-0 outline-none">
-              <InventoryManager />
-            </TabsContent>
-          )}
-          
-          {currentUser.permissions.analytics && (
-            <TabsContent value="analytics" className="mt-0 outline-none">
-              <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 text-center py-20">
-                <TrendingUp size={48} className="mx-auto text-slate-300 mb-4" />
-                <h2 className="text-2xl font-bold mb-2 text-slate-800">Sales Analytics</h2>
-                <p className="text-slate-500 max-w-md mx-auto">
-                  Real-time insights into your store's performance will appear here once sales data is available.
-                </p>
-              </div>
-            </TabsContent>
-          )}
+          <TabsContent value="sales" className="mt-0 outline-none">
+            <SalesHistory sales={sales} />
+          </TabsContent>
 
-          {currentUser.permissions.admin && (
-            <TabsContent value="settings" className="mt-0 outline-none">
-              <UserManagement />
-            </TabsContent>
-          )}
+          <TabsContent value="inventory" className="mt-0 outline-none">
+            <InventoryManager products={products} />
+          </TabsContent>
+
+          <TabsContent value="refill" className="mt-0 outline-none">
+            <RefillList products={products} />
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-0 outline-none">
+            <UserManagement />
+          </TabsContent>
         </Tabs>
       </main>
     </div>
