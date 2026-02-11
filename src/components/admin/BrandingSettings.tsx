@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Layout, Type, Image as ImageIcon, Save } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Layout, Type, Image as ImageIcon, Save, Upload, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { SystemSettings } from '@/types/grocery';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 
 interface BrandingSettingsProps {
   settings: SystemSettings;
@@ -16,10 +16,32 @@ interface BrandingSettingsProps {
 
 const BrandingSettings = ({ settings, onUpdate }: BrandingSettingsProps) => {
   const [formData, setFormData] = useState<SystemSettings>({ ...settings });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     onUpdate(formData);
     showSuccess("Branding settings updated successfully");
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit for local storage
+        showError("File is too large. Please choose an image under 2MB.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logoUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearLogo = () => {
+    setFormData(prev => ({ ...prev, logoUrl: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -49,27 +71,57 @@ const BrandingSettings = ({ settings, onUpdate }: BrandingSettingsProps) => {
 
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
-            <ImageIcon size={14} className="text-slate-400" /> Logo Image URL
+            <ImageIcon size={14} className="text-slate-400" /> System Logo
           </Label>
-          <Input 
-            value={formData.logoUrl} 
-            onChange={e => setFormData({...formData, logoUrl: e.target.value})}
-            placeholder="https://example.com/logo.png"
-            className="rounded-xl"
-          />
+          
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <Input 
+                value={formData.logoUrl.startsWith('data:') ? 'Local Image Uploaded' : formData.logoUrl} 
+                onChange={e => setFormData({...formData, logoUrl: e.target.value})}
+                placeholder="Paste image URL..."
+                className="rounded-xl flex-1"
+                disabled={formData.logoUrl.startsWith('data:')}
+              />
+              {formData.logoUrl && (
+                <Button variant="outline" size="icon" onClick={clearLogo} className="rounded-xl shrink-0">
+                  <X size={16} />
+                </Button>
+              )}
+            </div>
+            
+            <div className="relative">
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
+              <Button 
+                variant="secondary" 
+                className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 h-12"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={18} className="mr-2" /> Upload Logo Image
+              </Button>
+            </div>
+          </div>
           <p className="text-[10px] text-slate-400 font-medium italic">
-            * Provide a URL to an image file (PNG, SVG, or JPG).
+            * Recommended: Square SVG or PNG with transparent background.
           </p>
         </div>
 
         <div className="pt-2">
           <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Preview</p>
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
-            {formData.logoUrl ? (
-              <img src={formData.logoUrl} alt="Logo" className="w-8 h-8 object-contain" />
-            ) : (
-              <div className="w-8 h-8 bg-primary rounded-lg" />
-            )}
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white overflow-hidden shadow-sm">
+              {formData.logoUrl ? (
+                <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                <Layout size={20} />
+              )}
+            </div>
             <span className="font-black text-lg">{formData.systemName}</span>
           </div>
         </div>
