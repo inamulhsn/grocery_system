@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent } from 'lucide-react';
+import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -40,7 +40,6 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       
-      // Calculate discounted price
       const discountAmount = (product.price * (product.discount_percentage || 0)) / 100;
       const finalPrice = product.price - discountAmount;
       
@@ -112,40 +111,53 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pr-2">
-          {filteredProducts.map(product => (
-            <Card 
-              key={product.id}
-              className={`p-4 cursor-pointer hover:border-primary hover:shadow-md transition-all group relative overflow-hidden ${product.stock_quantity <= 0 ? 'opacity-50 grayscale' : ''}`}
-              onClick={() => addToCart(product)}
-            >
-              {product.discount_percentage > 0 && (
-                <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-bl-lg flex items-center gap-1">
-                  <Percent size={10} /> {product.discount_percentage}% OFF
-                </div>
-              )}
-              <div className="flex flex-col h-full justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wider">{product.category}</span>
-                  <h3 className="font-bold text-gray-800 group-hover:text-primary transition-colors">{product.name}</h3>
-                </div>
-                <div className="mt-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-black text-gray-900">
-                      ${(product.price * (1 - (product.discount_percentage || 0) / 100)).toFixed(2)}
-                    </span>
-                    {product.discount_percentage > 0 && (
-                      <span className="text-xs text-slate-400 line-through">${product.price.toFixed(2)}</span>
-                    )}
+          {filteredProducts.map(product => {
+            const isLowStock = product.stock_quantity <= product.refill_threshold;
+            const isOutOfStock = product.stock_quantity <= 0;
+
+            return (
+              <Card 
+                key={product.id}
+                className={`p-4 cursor-pointer hover:border-primary hover:shadow-md transition-all group relative overflow-hidden ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
+                onClick={() => addToCart(product)}
+              >
+                {product.discount_percentage > 0 && (
+                  <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-bl-lg flex items-center gap-1">
+                    <Percent size={10} /> {product.discount_percentage}% OFF
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${product.stock_quantity < 20 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                      {product.stock_quantity} {product.unit} left
-                    </span>
+                )}
+                <div className="flex flex-col h-full justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-primary/60 uppercase tracking-wider">{product.category}</span>
+                    <h3 className="font-bold text-gray-800 group-hover:text-primary transition-colors">{product.name}</h3>
+                  </div>
+                  <div className="mt-4">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-black text-gray-900">
+                        ${(product.price * (1 - (product.discount_percentage || 0) / 100)).toFixed(2)}
+                      </span>
+                      {product.discount_percentage > 0 && (
+                        <span className="text-xs text-slate-400 line-through">${product.price.toFixed(2)}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        <Badge 
+                          variant={isLowStock ? "destructive" : "secondary"} 
+                          className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLowStock ? 'animate-pulse' : ''}`}
+                        >
+                          {product.stock_quantity} {product.unit} left
+                        </Badge>
+                        {isLowStock && !isOutOfStock && (
+                          <AlertTriangle size={12} className="text-red-500" />
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       </div>
 
