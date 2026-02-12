@@ -40,8 +40,9 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       
-      const discountAmount = (product.price * (product.discount_percentage || 0)) / 100;
-      const finalPrice = product.price - discountAmount;
+      // Calculate exact discount and final price per unit
+      const discountAmount = Math.round((product.price * (product.discount_percentage || 0) / 100) * 100) / 100;
+      const finalPrice = Math.round((product.price - discountAmount) * 100) / 100;
       
       return [...prev, { ...product, quantity: 1, finalPrice, discountAmount }];
     });
@@ -67,20 +68,26 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const totalDiscount = cart.reduce((sum, item) => sum + (item.discountAmount * item.quantity), 0);
-  const total = subtotal - totalDiscount;
+  // Calculate totals with rounding
+  const subtotal = Math.round(cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 100) / 100;
+  const totalDiscount = Math.round(cart.reduce((sum, item) => sum + (item.discountAmount * item.quantity), 0) * 100) / 100;
+  const total = Math.round((subtotal - totalDiscount) * 100) / 100;
 
   const handleCheckout = (method: 'cash' | 'card' | 'upi') => {
-    const saleItems: SaleItem[] = cart.map(item => ({
-      id: Math.random().toString(36).substr(2, 9),
-      product_id: item.id,
-      product_name: item.name,
-      quantity: item.quantity,
-      unit_price: item.price,
-      discount_amount: item.discountAmount * item.quantity,
-      total_price: (item.price - item.discountAmount) * item.quantity
-    }));
+    const saleItems: SaleItem[] = cart.map(item => {
+      const itemTotal = Math.round((item.finalPrice * item.quantity) * 100) / 100;
+      const itemDiscountTotal = Math.round((item.discountAmount * item.quantity) * 100) / 100;
+      
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        product_id: item.id,
+        product_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.finalPrice, // Saving the ACTUAL sale price per unit
+        discount_amount: itemDiscountTotal,
+        total_price: itemTotal
+      };
+    });
 
     const newSale: Sale = {
       id: `SALE-${Date.now()}`,
@@ -114,6 +121,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
           {filteredProducts.map(product => {
             const isLowStock = product.stock_quantity <= product.refill_threshold;
             const isOutOfStock = product.stock_quantity <= 0;
+            const discountedPrice = Math.round((product.price * (1 - (product.discount_percentage || 0) / 100)) * 100) / 100;
 
             return (
               <Card 
@@ -134,7 +142,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
                   <div className="mt-4">
                     <div className="flex items-baseline gap-2">
                       <span className="text-lg font-black text-gray-900">
-                        ${(product.price * (1 - (product.discount_percentage || 0) / 100)).toFixed(2)}
+                        ${discountedPrice.toFixed(2)}
                       </span>
                       {product.discount_percentage > 0 && (
                         <span className="text-xs text-slate-400 line-through">${product.price.toFixed(2)}</span>
