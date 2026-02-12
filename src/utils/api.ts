@@ -1,7 +1,7 @@
-// src/utils/api.ts
-import { Product, Sale, SystemSettings, FeatureToggles } from '@/types/grocery';
+"use client";
 
-// Because of the proxy in vite.config.ts, we can just use /api
+import { Product, Sale, SystemSettings, FeatureToggles, Profile } from '@/types/grocery';
+
 const API_URL = '/api';
 
 export const api = {
@@ -48,13 +48,23 @@ export const api = {
     const res = await fetch(`${API_URL}/settings/branding`);
     return res.json();
   },
+
+  saveBranding: async (settings: SystemSettings): Promise<SystemSettings> => {
+    const res = await fetch(`${API_URL}/settings/branding`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+    if (!res.ok) throw new Error('Failed to save branding');
+    return res.json();
+  },
   
   getFeatures: async (): Promise<FeatureToggles> => {
     const res = await fetch(`${API_URL}/settings/features`);
     return res.json();
   },
 
-  // --- AUTH ---
+  // --- AUTH & USERS ---
   login: async (credentials: unknown) => {
     const res = await fetch(`${API_URL}/users/login`, {
       method: 'POST',
@@ -62,6 +72,16 @@ export const api = {
       body: JSON.stringify(credentials),
     });
     if (!res.ok) throw new Error('Invalid credentials');
+    return res.json();
+  },
+
+  updateUser: async (user: Profile): Promise<Profile> => {
+    const res = await fetch(`${API_URL}/users/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    });
+    if (!res.ok) throw new Error('Failed to update user');
     return res.json();
   }
 };

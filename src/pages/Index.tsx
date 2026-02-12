@@ -40,7 +40,7 @@ const Index = () => {
       ]);
       setProducts(productsData);
       setSales(salesData);
-      setBranding(brandingData);
+      if (brandingData) setBranding(brandingData);
     } catch (error) {
       console.error("Failed to load data:", error);
       showError("Connection to server failed.");
@@ -67,12 +67,32 @@ const Index = () => {
     }
   };
 
+  const handleUpdateBranding = async (newBranding: SystemSettings) => {
+    try {
+      const updated = await api.saveBranding(newBranding);
+      setBranding(updated);
+      showSuccess("System branding updated!");
+    } catch (error) {
+      showError("Failed to update branding.");
+    }
+  };
+
+  const handleUpdateAdminProfile = async (updatedProfile: Profile) => {
+    try {
+      const updated = await api.updateUser(updatedProfile);
+      setCurrentUser(updated);
+      localStorage.setItem('grocery_user', JSON.stringify(updated));
+      showSuccess("Admin profile updated!");
+    } catch (error) {
+      showError("Failed to update profile.");
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('grocery_user');
     navigate('/login');
   };
 
-  // Helper to check permissions
   const hasAccess = (section: keyof UserPermissions) => {
     if (currentUser?.role === 'admin') return true;
     return currentUser?.permissions?.[section]?.view || false;
@@ -146,7 +166,12 @@ const Index = () => {
 
           {currentUser?.role === 'admin' && (
             <TabsContent value="settings" className="mt-0 outline-none">
-              <UserManagement />
+              <UserManagement 
+                branding={branding} 
+                onUpdateBranding={handleUpdateBranding}
+                currentUser={currentUser}
+                onUpdateAdminProfile={handleUpdateAdminProfile}
+              />
             </TabsContent>
           )}
         </Tabs>

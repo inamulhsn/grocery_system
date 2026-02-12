@@ -26,7 +26,7 @@ const BrandingSettings = ({ settings, onUpdate }: BrandingSettingsProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit for local storage
+      if (file.size > 2 * 1024 * 1024) {
         showError("File is too large. Please choose an image under 2MB.");
         return;
       }
@@ -107,9 +107,6 @@ const BrandingSettings = ({ settings, onUpdate }: BrandingSettingsProps) => {
               </Button>
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 font-medium italic">
-            * Recommended: Square SVG or PNG with transparent background.
-          </p>
         </div>
 
         <div className="pt-2">
