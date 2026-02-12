@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Receipt, ChevronDown, ChevronUp, Calendar, Clock, CreditCard, Banknote } from 'lucide-react';
+import { Receipt, Calendar, Clock, CreditCard, Banknote } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -12,7 +12,7 @@ interface SalesHistoryProps {
 }
 
 const SalesHistory = ({ sales }: SalesHistoryProps) => {
-  if (sales.length === 0) {
+  if (!sales || sales.length === 0) {
     return (
       <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-200 text-center">
         <Receipt size={48} className="mx-auto text-slate-300 mb-4" />
@@ -45,14 +45,21 @@ const SalesHistory = ({ sales }: SalesHistoryProps) => {
                     <div>
                       <p className="font-bold text-slate-800">Order #{sale.id.slice(-4)}</p>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                        <span className="flex items-center gap-1"><Clock size={12} /> {new Date(sale.created_at).toLocaleTimeString()}</span>
-                        <span className="capitalize">• {sale.payment_method}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} /> 
+                          {sale.created_at ? new Date(sale.created_at).toLocaleTimeString() : 'N/A'}
+                        </span>
+                        <span className="capitalize">• {sale.payment_method || 'Unknown'}</span>
                       </div>
                     </div>
                   </div>
                   <div className="mr-4 text-right">
-                    <p className="text-lg font-black text-primary">${sale.total_amount.toFixed(2)}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{sale.items.length} Items</p>
+                    <p className="text-lg font-black text-primary">
+                      ${(sale.total_amount || 0).toFixed(2)}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {(sale.items?.length || 0)} Items
+                    </p>
                   </div>
                 </div>
               </AccordionTrigger>
@@ -68,12 +75,14 @@ const SalesHistory = ({ sales }: SalesHistoryProps) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {sale.items.map((item, idx) => (
+                      {sale.items?.map((item, idx) => (
                         <tr key={idx} className="text-slate-600">
                           <td className="py-2 font-medium">{item.product_name}</td>
                           <td className="py-2 text-center">{item.quantity}</td>
-                          <td className="py-2 text-right">${item.unit_price.toFixed(2)}</td>
-                          <td className="py-2 text-right font-bold text-slate-800">${item.total_price.toFixed(2)}</td>
+                          <td className="py-2 text-right">${(item.unit_price || 0).toFixed(2)}</td>
+                          <td className="py-2 text-right font-bold text-slate-800">
+                            ${(item.total_price || 0).toFixed(2)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

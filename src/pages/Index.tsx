@@ -3,16 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Package, 
-  Users, 
-  Settings, 
-  TrendingUp, 
-  Receipt, 
-  ClipboardList,
-  LogOut,
-  ShieldCheck
+  ShoppingCart, Package, Settings, TrendingUp, Receipt, 
+  ClipboardList, LogOut
 } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
@@ -24,100 +16,75 @@ import BrandingSettings from '@/components/admin/BrandingSettings';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Product, Sale, Profile, SystemSettings } from '@/types/grocery';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
+import { api } from '@/utils/api'; // Import our new API helper
 
 const Index = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('grocery_products');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', sku: 'GR-001', name: 'Organic Bananas', category: 'Fruits', price: 2.99, cost_price: 1.5, stock_quantity: 150, refill_threshold: 20, unit: 'kg', discount_percentage: 0 },
-      { id: '2', sku: 'GR-002', name: 'Whole Milk 1L', category: 'Dairy', price: 1.50, cost_price: 0.9, stock_quantity: 15, refill_threshold: 25, unit: 'pcs', discount_percentage: 10 },
-      { id: '3', sku: 'GR-003', name: 'Sourdough Bread', category: 'Bakery', price: 4.25, cost_price: 2.1, stock_quantity: 12, refill_threshold: 15, unit: 'pcs', discount_percentage: 0 },
-    ];
-  });
+  // Initialize with empty arrays
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [branding, setBranding] = useState<SystemSettings>({ systemName: 'GroceryPro', logoUrl: '' });
 
-  const [sales, setSales] = useState<Sale[]>(() => {
-    const saved = localStorage.getItem('grocery_sales');
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  // Get user from local storage (Login persists user, but data comes from DB)
   const [currentUser, setCurrentUser] = useState<Profile>(() => {
-    const saved = localStorage.getItem('grocery_admin_profile');
-    return saved ? JSON.parse(saved) : {
-      id: '1',
-      email: 'admin@grocerypro.com',
-      username: 'admin',
-      password: 'admin',
-      full_name: 'Admin User',
-      role: 'admin',
-      phone_number: '+1234567890',
-      permissions: { 
-        pos: { view: true, create: true, edit: true, delete: true },
-        inventory: { view: true, create: true, edit: true, delete: true },
-        analytics: { view: true, create: true, edit: true, delete: true },
-        admin: { view: true, create: true, edit: true, delete: true }
-      }
-    };
+    const saved = localStorage.getItem('grocery_user');
+    return saved ? JSON.parse(saved) : null;
   });
 
-  const [branding, setBranding] = useState<SystemSettings>(() => {
-    const saved = localStorage.getItem('grocery_branding');
-    return saved ? JSON.parse(saved) : {
-      systemName: 'GroceryPro',
-      logoUrl: ''
-    };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('grocery_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('grocery_sales', JSON.stringify(sales));
-  }, [sales]);
-
-  useEffect(() => {
-    localStorage.setItem('grocery_admin_profile', JSON.stringify(currentUser));
-  }, [currentUser]);
-
-  useEffect(() => {
-    localStorage.setItem('grocery_branding', JSON.stringify(branding));
-  }, [branding]);
-
-  const handleCompleteSale = (newSale: Sale) => {
-    setSales(prev => [newSale, ...prev]);
-    setProducts(prevProducts => prevProducts.map(product => {
-      const soldItem = newSale.items.find(item => item.product_id === product.id);
-      if (soldItem) {
-        return {
-          ...product,
-          stock_quantity: Math.max(0, product.stock_quantity - soldItem.quantity)
-        };
-      }
-      return product;
-    }));
+  // --- 1. LOAD DATA FROM C# BACKEND ---
+  const loadData = async () => {
+    try {
+      const [productsData, salesData, brandingData] = await Promise.all([
+        api.getProducts(),
+        api.getSales(),
+        api.getBranding()
+      ]);
+      setProducts(productsData);
+      setSales(salesData);
+      setBranding(brandingData);
+    } catch (error) {
+      console.error("Failed to load data:", error);
+      showError("Connection to server failed. Is the backend running?");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdateProducts = (updatedProducts: Product[]) => {
-    setProducts(updatedProducts);
+  useEffect(() => {
+    // If not logged in, redirect
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+    loadData();
+  }, [currentUser, navigate]);
+
+  // --- 2. HANDLE ACTIONS ---
+
+  const handleCompleteSale = async (newSale: Sale) => {
+    try {
+      await api.createSale(newSale);
+      showSuccess("Sale recorded successfully!");
+      loadData(); // Reload to get updated stock
+    } catch (error) {
+      showError("Failed to record sale.");
+    }
   };
 
-  const handleUpdateAdminProfile = (updatedProfile: Profile) => {
-    setCurrentUser(updatedProfile);
-  };
-
-  const handleUpdateBranding = (updatedBranding: SystemSettings) => {
-    setBranding(updatedBranding);
+  // This is passed to InventoryManager to refresh the list
+  const handleProductChange = () => {
+    loadData();
   };
 
   const handleLogout = () => {
-    showSuccess("Logged out successfully");
+    localStorage.removeItem('grocery_user');
     navigate('/login');
   };
 
-  const totalDailySales = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
+  if (loading) return <div className="p-10 text-center">Loading system...</div>;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
@@ -125,45 +92,18 @@ const Index = () => {
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20 overflow-hidden">
-              {branding.logoUrl ? (
-                <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-              ) : (
-                <TrendingUp size={24} />
-              )}
+              {branding.logoUrl ? <img src={branding.logoUrl} className="w-full h-full object-cover" /> : <TrendingUp size={24} />}
             </div>
-            <h1 className="text-xl font-black tracking-tight">
-              {branding.systemName.includes(' ') ? (
-                <>
-                  {branding.systemName.split(' ')[0]}
-                  <span className="text-primary">{branding.systemName.split(' ').slice(1).join(' ')}</span>
-                </>
-              ) : (
-                branding.systemName
-              )}
-            </h1>
+            <h1 className="text-xl font-black tracking-tight">{branding.systemName}</h1>
           </div>
           
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-bold">{currentUser.full_name}</p>
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser.role}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600">
-                {currentUser.full_name.split(' ').map(n => n[0]).join('')}
-              </div>
+            <div className="text-right hidden md:block">
+              <p className="text-sm font-bold">{currentUser?.full_name || 'User'}</p>
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser?.role}</p>
             </div>
-            
-            <div className="w-px h-8 bg-slate-200" />
-            
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={handleLogout}
-              className="rounded-xl font-bold flex items-center gap-2 px-4"
-            >
-              <LogOut size={16} />
-              Logout
+            <Button variant="destructive" size="sm" onClick={handleLogout} className="rounded-xl font-bold gap-2 px-4">
+              <LogOut size={16} /> Logout
             </Button>
           </div>
         </div>
@@ -171,37 +111,13 @@ const Index = () => {
 
       <main className="max-w-[1600px] mx-auto p-6">
         <Tabs defaultValue="pos" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <TabsList className="bg-white border border-slate-200 p-1 h-12 rounded-xl shadow-sm overflow-x-auto">
-              <TabsTrigger value="pos" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <ShoppingCart className="mr-2" size={18} /> POS
-              </TabsTrigger>
-              <TabsTrigger value="sales" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <Receipt className="mr-2" size={18} /> Sales
-              </TabsTrigger>
-              <TabsTrigger value="inventory" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <Package className="mr-2" size={18} /> Inventory
-              </TabsTrigger>
-              <TabsTrigger value="refill" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <ClipboardList className="mr-2" size={18} /> Refill
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="rounded-lg px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
-                <Settings className="mr-2" size={18} /> Admin
-              </TabsTrigger>
-            </TabsList>
-            
-            <div className="hidden lg:flex items-center gap-6 text-sm">
-              <div className="flex flex-col">
-                <span className="text-slate-400 font-medium">Daily Sales</span>
-                <span className="font-black text-lg">${totalDailySales.toFixed(2)}</span>
-              </div>
-              <div className="w-px h-8 bg-slate-200" />
-              <div className="flex flex-col">
-                <span className="text-slate-400 font-medium">Orders</span>
-                <span className="font-black text-lg">{sales.length}</span>
-              </div>
-            </div>
-          </div>
+          <TabsList className="bg-white border border-slate-200 p-1 h-12 rounded-xl shadow-sm">
+            <TabsTrigger value="pos" className="rounded-lg px-6"><ShoppingCart className="mr-2" size={18} /> POS</TabsTrigger>
+            <TabsTrigger value="sales" className="rounded-lg px-6"><Receipt className="mr-2" size={18} /> Sales</TabsTrigger>
+            <TabsTrigger value="inventory" className="rounded-lg px-6"><Package className="mr-2" size={18} /> Inventory</TabsTrigger>
+            <TabsTrigger value="refill" className="rounded-lg px-6"><ClipboardList className="mr-2" size={18} /> Refill</TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-lg px-6"><Settings className="mr-2" size={18} /> Admin</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="pos" className="mt-0 outline-none">
             <POSInterface products={products} onCompleteSale={handleCompleteSale} />
@@ -212,7 +128,8 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="inventory" className="mt-0 outline-none">
-            <InventoryManager products={products} onUpdateProducts={handleUpdateProducts} />
+            {/* We pass handleProductChange so InventoryManager can trigger a reload */}
+            <InventoryManager products={products} onProductChanged={handleProductChange} />
           </TabsContent>
 
           <TabsContent value="refill" className="mt-0 outline-none">
@@ -220,11 +137,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="settings" className="mt-0 outline-none space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <AdminSecurity adminProfile={currentUser} onUpdate={handleUpdateAdminProfile} />
-              <BrandingSettings settings={branding} onUpdate={handleUpdateBranding} />
-            </div>
-            <UserManagement />
+            <div className="text-center p-10 text-slate-500">Admin Settings moved to Database!</div>
           </TabsContent>
         </Tabs>
       </main>

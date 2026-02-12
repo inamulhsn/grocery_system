@@ -18,15 +18,15 @@ import {
 } from "@/components/ui/dialog";
 import { Product } from '@/types/grocery';
 import BarcodeGenerator from './BarcodeGenerator';
-import { showSuccess } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
+import { api } from '@/utils/api'; // Don't forget to import this!
 
 interface InventoryManagerProps {
   products: Product[];
-  onUpdateProducts: (products: Product[]) => void;
+  onProductChanged: () => void; // Changed from onUpdateProducts
 }
 
-const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps) => {
-  const [searchQuery, setSearchQuery] = useState('');
+const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps) => {  const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -70,29 +70,34 @@ const InventoryManager = ({ products, onUpdateProducts }: InventoryManagerProps)
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingProduct) {
-      const updatedProducts = products.map(p => 
-        p.id === editingProduct.id ? { ...p, ...formData } as Product : p
-      );
-      onUpdateProducts(updatedProducts);
-      showSuccess("Product updated successfully");
-    } else {
-      const newProduct: Product = {
-        id: Date.now().toString(),
+  const handleSave = async () => {
+    try {
+      const productToSave = {
         ...formData,
+        id: editingProduct ? editingProduct.id : undefined, // Let backend generate ID for new items
       } as Product;
-      onUpdateProducts([...products, newProduct]);
-      showSuccess("New product added to inventory");
+
+      await api.saveProduct(productToSave);
+      
+      showSuccess(editingProduct ? "Product updated" : "Product created");
+      setIsDialogOpen(false);
+      onProductChanged(); // Tell Index.tsx to reload data
+    } catch (e) {
+      showError("Failed to save product");
     }
-    setIsDialogOpen(false);
   };
-
-  const handleDelete = (id: string) => {
-    onUpdateProducts(products.filter(p => p.id !== id));
-    showSuccess("Product removed from inventory");
+  
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      try {
+        await api.deleteProduct(id);
+        showSuccess("Product deleted");
+        onProductChanged(); // Tell Index.tsx to reload data
+      } catch (e) {
+        showError("Failed to delete product");
+      }
+    }
   };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

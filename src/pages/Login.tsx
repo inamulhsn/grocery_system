@@ -8,50 +8,61 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { showSuccess, showError } from '@/utils/toast';
+import { api } from '@/utils/api'; // Import the API helper
 import { SystemSettings } from '@/types/grocery';
 
 const Login = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Default branding until loaded from DB
   const [branding, setBranding] = useState<SystemSettings>({
     systemName: 'GroceryPro',
     logoUrl: ''
   });
+  
   const [formData, setFormData] = useState({
     identifier: '',
     password: ''
   });
 
+  // Load branding from DB when page opens
   useEffect(() => {
-    const savedBranding = localStorage.getItem('grocery_branding');
-    if (savedBranding) {
-      setBranding(JSON.parse(savedBranding));
-    }
+    const loadBranding = async () => {
+      try {
+        const settings = await api.getBranding();
+        if (settings) setBranding(settings);
+      } catch (e) {
+        console.log("Using default branding");
+      }
+    };
+    loadBranding();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const savedAdmin = localStorage.getItem('grocery_admin_profile');
-    const admin = savedAdmin ? JSON.parse(savedAdmin) : { 
-      username: 'admin', 
-      email: 'admin@grocerypro.com', 
-      password: 'admin' 
-    };
+    try {
+      // 1. Call the Backend API
+      const user = await api.login({
+        identifier: formData.identifier,
+        password: formData.password
+      });
 
-    setTimeout(() => {
-      const isCorrectIdentifier = formData.identifier === admin.username || formData.identifier === admin.email;
-      const isCorrectPassword = formData.password === admin.password;
-
-      if (isCorrectIdentifier && isCorrectPassword) {
-        showSuccess(`Welcome back to ${branding.systemName}!`);
-        navigate('/');
-      } else {
-        showError("Invalid credentials. Please check your username/email and password.");
-      }
+      // 2. If successful, save user to LocalStorage (so you stay logged in)
+      localStorage.setItem('grocery_user', JSON.stringify(user));
+      
+      showSuccess(`Welcome back, ${user.fullName}!`);
+      
+      // 3. Go to Dashboard
+      navigate('/');
+      
+    } catch (error) {
+      showError("Invalid username or password");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -66,14 +77,7 @@ const Login = () => {
             )}
           </div>
           <h1 className="text-3xl font-black tracking-tight text-slate-900">
-            {branding.systemName.includes(' ') ? (
-              <>
-                {branding.systemName.split(' ')[0]}
-                <span className="text-primary">{branding.systemName.split(' ').slice(1).join(' ')}</span>
-              </>
-            ) : (
-              branding.systemName
-            )}
+            {branding.systemName}
           </h1>
           <p className="text-slate-500 font-medium">Management System Terminal</p>
         </div>
@@ -81,13 +85,13 @@ const Login = () => {
         <Card className="p-8 border-none shadow-2xl shadow-slate-200/60 rounded-3xl bg-white">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Username or Email</Label>
+              <Label htmlFor="identifier">Username</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <Input 
                   id="identifier"
                   type="text" 
-                  placeholder="admin or admin@grocerypro.com" 
+                  placeholder="admin" 
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:border-primary transition-all"
                   value={formData.identifier}
                   onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
@@ -99,14 +103,13 @@ const Login = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="password">Password</Label>
-                <button type="button" className="text-xs font-bold text-primary hover:underline">Forgot password?</button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <Input 
                   id="password"
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="•••••" 
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:border-primary transition-all"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -130,11 +133,6 @@ const Login = () => {
             </Button>
           </form>
         </Card>
-
-        <p className="text-center text-sm text-slate-500">
-          Authorized personnel only. <br/>
-          Contact your administrator for access credentials.
-        </p>
       </div>
     </div>
   );
