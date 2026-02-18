@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ShoppingCart, Package, Settings, TrendingUp, Receipt, 
-  ClipboardList, LogOut, ShieldCheck, DollarSign
+  ClipboardList, LogOut, ShieldCheck, DollarSign, BarChart3
 } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
@@ -21,7 +21,6 @@ import { api } from '@/utils/api';
 const Index = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [dailyRevenue, setDailyRevenue] = useState<number>(0);
   
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -34,15 +33,13 @@ const Index = () => {
 
   const loadData = async () => {
     try {
-      const [productsData, salesData, brandingData , totalData] = await Promise.all([
+      const [productsData, salesData, brandingData] = await Promise.all([
         api.getProducts(),
         api.getSales(),
-        api.getBranding(),
-        api.getDailyTotal()
+        api.getBranding()
       ]);
       setProducts(productsData);
       setSales(salesData);
-      setDailyRevenue(totalData);
       if (brandingData) setBranding(brandingData);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -59,6 +56,30 @@ const Index = () => {
     }
     loadData();
   }, [currentUser, navigate]);
+
+  // Calculate Daily Stats
+  const stats = useMemo(() => {
+    const today = new Date().toDateString();
+    const todaysSales = sales.filter(s => new Date(s.createdAt).toDateString() === today);
+    
+    let grossTotal = 0;
+    let netProfit = 0;
+
+    todaysSales.forEach(sale => {
+      grossTotal += sale.totalAmount;
+      
+      sale.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+          const cost = product.costPrice * item.quantity;
+          const revenue = item.totalPrice;
+          netProfit += (revenue - cost);
+        }
+      });
+    });
+
+    return { grossTotal, netProfit };
+  }, [sales, products]);
 
   const handleCompleteSale = async (newSale: Sale) => {
     try {
@@ -121,13 +142,23 @@ const Index = () => {
           
           <div className="flex items-center gap-6">
             {currentUser?.role === 'admin' && (
-              <div className="hidden lg:flex flex-col items-end px-4 border-r border-slate-200">
-                <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1">
-                  <DollarSign size={10} /> Today's Revenue
-                </span>
-                <span className="text-lg font-black text-emerald-600">
-                  LKR {dailyRevenue.toFixed(2)}
-                </span>
+              <div className="hidden lg:flex items-center gap-6 px-4 border-r border-slate-200">
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1">
+                    <DollarSign size={10} /> Today's Gross
+                  </span>
+                  <span className="text-sm font-black text-slate-900">
+                    LKR {stats.grossTotal.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-emerald-600 uppercase font-black tracking-widest flex items-center gap-1">
+                    <BarChart3 size={10} /> Today's Profit
+                  </span>
+                  <span className="text-lg font-black text-emerald-600">
+                    LKR {stats.netProfit.toFixed(2)}
+                  </span>
+                </div>
               </div>
             )}
 

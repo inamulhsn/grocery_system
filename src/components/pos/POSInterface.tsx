@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent, AlertTriangle, Printer } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,8 +16,10 @@ import {
   DialogDescription
 } from "@/components/ui/dialog";
 import CartItem from './CartItem';
-import { Product, Sale, SaleItem } from '@/types/grocery';
+import Receipt from './Receipt';
+import { Product, Sale, SaleItem, SystemSettings } from '@/types/grocery';
 import { showSuccess, showError } from '@/utils/toast';
+import { api } from '@/utils/api';
 
 interface POSInterfaceProps {
   products: Product[];
@@ -27,12 +29,19 @@ interface POSInterfaceProps {
 const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<any[]>([]);
+  const [branding, setBranding] = useState<SystemSettings>({ systemName: 'GroceryPro', logoUrl: '' });
   
   // Cash Payment Dialog State
   const [isCashDialogOpen, setIsCashDialogOpen] = useState(false);
   const [cashReceived, setCashReceived] = useState<string>('');
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [lastCompletedSale, setLastCompletedSale] = useState<Sale | null>(null);
+
+  useEffect(() => {
+    api.getBranding().then(data => {
+      if (data) setBranding(data);
+    });
+  }, []);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -332,19 +341,24 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
 
       {/* Print Bill Prompt */}
       <Dialog open={showPrintPrompt} onOpenChange={setShowPrintPrompt}>
-        <DialogContent className="sm:max-w-[400px] text-center">
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
-              <ReceiptText size={32} />
-            </div>
-            <DialogTitle className="text-2xl font-black">Sale Completed!</DialogTitle>
-            <DialogDescription>The transaction has been recorded successfully.</DialogDescription>
+            <DialogTitle className="text-2xl font-black text-center">Transaction Successful</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-500">Would you like to print the receipt for this order?</p>
-          </div>
+          
+          {lastCompletedSale && (
+            <div className="py-4">
+              <Receipt 
+                sale={lastCompletedSale} 
+                branding={branding} 
+                cashReceived={parseFloat(cashReceived)} 
+                balance={balance} 
+              />
+            </div>
+          )}
+
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setShowPrintPrompt(false)} className="flex-1 rounded-xl">No, Skip</Button>
+            <Button variant="outline" onClick={() => setShowPrintPrompt(false)} className="flex-1 rounded-xl">Close</Button>
             <Button onClick={handlePrint} className="flex-1 bg-primary text-white rounded-xl font-bold gap-2">
               <Printer size={18} /> Print Bill
             </Button>
