@@ -1,23 +1,37 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent, AlertTriangle } from 'lucide-react';
+import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent, AlertTriangle, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
 import CartItem from './CartItem';
 import { Product, Sale, SaleItem } from '@/types/grocery';
 import { showSuccess, showError } from '@/utils/toast';
 
 interface POSInterfaceProps {
   products: Product[];
-  onCompleteSale: (sale: Sale) => void;
+  onCompleteSale: (sale: Sale) => Promise<void>;
 }
 
 const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<any[]>([]);
+  
+  // Cash Payment Dialog State
+  const [isCashDialogOpen, setIsCashDialogOpen] = useState(false);
+  const [cashReceived, setCashReceived] = useState<string>('');
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const [lastCompletedSale, setLastCompletedSale] = useState<Sale | null>(null);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -25,7 +39,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
   );
 
   const addToCart = (product: Product) => {
-    if (product.stock_quantity <= 0) {
+    if (product.stockQuantity <= 0) {
       showError("Product out of stock!");
       return;
     }
@@ -33,15 +47,14 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stock_quantity) {
+        if (existing.quantity >= product.stockQuantity) {
           showError("Cannot add more than available stock!");
           return prev;
         }
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       
-      // Calculate exact discount and final price per unit
-      const discountAmount = Math.round((product.price * (product.discount_percentage || 0) / 100) * 100) / 100;
+      const discountAmount = Math.round((product.price * (product.discountPercentage || 0) / 100) * 100) / 100;
       const finalPrice = Math.round((product.price - discountAmount) * 100) / 100;
       
       return [...prev, { ...product, quantity: 1, finalPrice, discountAmount }];
@@ -54,7 +67,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = Math.max(1, item.quantity + delta);
-        if (product && newQty > product.stock_quantity) {
+        if (product && newQty > product.stockQuantity) {
           showError("Insufficient stock!");
           return item;
         }
@@ -68,39 +81,63 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
-  // Calculate totals with rounding
   const subtotal = Math.round(cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 100) / 100;
   const totalDiscount = Math.round(cart.reduce((sum, item) => sum + (item.discountAmount * item.quantity), 0) * 100) / 100;
   const total = Math.round((subtotal - totalDiscount) * 100) / 100;
 
-  const handleCheckout = (method: 'cash' | 'card' | 'upi') => {
+  const balance = cashReceived ? Math.max(0, parseFloat(cashReceived) - total) : 0;
+
+  const handleCheckout = async (method: 'cash' | 'card' | 'upi') => {
+    if (method === 'cash') {
+      setIsCashDialogOpen(true);
+      setCashReceived('');
+      return;
+    }
+    
+    await completeTransaction(method);
+  };
+
+  const completeTransaction = async (method: 'cash' | 'card' | 'upi') => {
     const saleItems: SaleItem[] = cart.map(item => {
       const itemTotal = Math.round((item.finalPrice * item.quantity) * 100) / 100;
       const itemDiscountTotal = Math.round((item.discountAmount * item.quantity) * 100) / 100;
       
       return {
         id: Math.random().toString(36).substr(2, 9),
-        product_id: item.id,
-        product_name: item.name,
+        productId: item.id,
+        productName: item.name,
         quantity: item.quantity,
-        unit_price: item.finalPrice, // Saving the ACTUAL sale price per unit
-        discount_amount: itemDiscountTotal,
-        total_price: itemTotal
+        unitPrice: item.finalPrice,
+        discountAmount: itemDiscountTotal,
+        totalPrice: itemTotal
       };
     });
 
     const newSale: Sale = {
       id: `SALE-${Date.now()}`,
-      created_at: new Date().toISOString(),
-      total_amount: total,
-      payment_method: method,
-      cashier_id: 'admin',
+      createdAt: new Date().toISOString(),
+      totalAmount: total,
+      paymentMethod: method,
+      cashierId: 'admin',
       items: saleItems
     };
 
-    onCompleteSale(newSale);
-    showSuccess(`Sale completed via ${method.toUpperCase()}!`);
-    setCart([]);
+    try {
+      await onCompleteSale(newSale);
+      setLastCompletedSale(newSale);
+      setCart([]);
+      setIsCashDialogOpen(false);
+      setShowPrintPrompt(true);
+    } catch (error: any) {
+      console.error('Sale completion failed:', error);
+      showError(error?.message || 'Failed to complete sale.');
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+    setShowPrintPrompt(false);
+    showSuccess("Bill sent to printer!");
   };
 
   return (
@@ -119,9 +156,9 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pr-2">
           {filteredProducts.map(product => {
-            const isLowStock = product.stock_quantity <= product.refill_threshold;
-            const isOutOfStock = product.stock_quantity <= 0;
-            const discountedPrice = Math.round((product.price * (1 - (product.discount_percentage || 0) / 100)) * 100) / 100;
+            const isLowStock = product.stockQuantity <= product.refillThreshold;
+            const isOutOfStock = product.stockQuantity <= 0;
+            const discountedPrice = Math.round((product.price * (1 - (product.discountPercentage || 0) / 100)) * 100) / 100;
 
             return (
               <Card 
@@ -129,9 +166,9 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
                 className={`p-4 cursor-pointer hover:border-primary hover:shadow-md transition-all group relative overflow-hidden ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
                 onClick={() => addToCart(product)}
               >
-                {product.discount_percentage > 0 && (
+                {product.discountPercentage > 0 && (
                   <div className="absolute top-0 right-0 bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-bl-lg flex items-center gap-1">
-                    <Percent size={10} /> {product.discount_percentage}% OFF
+                    <Percent size={10} /> {product.discountPercentage}% OFF
                   </div>
                 )}
                 <div className="flex flex-col h-full justify-between">
@@ -142,10 +179,10 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
                   <div className="mt-4">
                     <div className="flex items-baseline gap-2">
                       <span className="text-lg font-black text-gray-900">
-                        ${discountedPrice.toFixed(2)}
+                        LKR {discountedPrice.toFixed(2)}
                       </span>
-                      {product.discount_percentage > 0 && (
-                        <span className="text-xs text-slate-400 line-through">${product.price.toFixed(2)}</span>
+                      {product.discountPercentage > 0 && (
+                        <span className="text-xs text-slate-400 line-through">LKR {product.price.toFixed(2)}</span>
                       )}
                     </div>
                     <div className="flex items-center justify-between mt-2">
@@ -154,11 +191,8 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
                           variant={isLowStock ? "destructive" : "secondary"} 
                           className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLowStock ? 'animate-pulse' : ''}`}
                         >
-                          {product.stock_quantity} {product.unit} left
+                          {product.stockQuantity} {product.unit} left
                         </Badge>
-                        {isLowStock && !isOutOfStock && (
-                          <AlertTriangle size={12} className="text-red-500" />
-                        )}
                       </div>
                     </div>
                   </div>
@@ -193,11 +227,6 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
                     onUpdateQuantity={updateQuantity}
                     onRemove={removeFromCart}
                   />
-                  {item.discount_percentage > 0 && (
-                    <p className="text-[10px] text-green-600 font-bold px-3 -mt-1">
-                      Applied {item.discount_percentage}% discount (-${(item.discountAmount * item.quantity).toFixed(2)})
-                    </p>
-                  )}
                 </div>
               ))
             )}
@@ -207,18 +236,18 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
             <div className="space-y-1 text-sm">
               <div className="flex justify-between text-slate-500">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>LKR {subtotal.toFixed(2)}</span>
               </div>
               {totalDiscount > 0 && (
                 <div className="flex justify-between text-green-600 font-medium">
                   <span>Total Discount</span>
-                  <span>-${totalDiscount.toFixed(2)}</span>
+                  <span>-LKR {totalDiscount.toFixed(2)}</span>
                 </div>
               )}
             </div>
             <div className="flex justify-between items-center text-2xl font-black pt-2 border-t border-slate-50">
               <span>Total</span>
-              <span className="text-primary">${total.toFixed(2)}</span>
+              <span className="text-primary">LKR {total.toFixed(2)}</span>
             </div>
 
             <div className="grid grid-cols-3 gap-3 pt-2">
@@ -250,6 +279,77 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
           </div>
         </Card>
       </div>
+
+      {/* Cash Payment Dialog */}
+      <Dialog open={isCashDialogOpen} onOpenChange={setIsCashDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black">Cash Payment</DialogTitle>
+            <DialogDescription>Enter the amount received from the customer.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <span className="font-bold text-slate-500">Total Payable</span>
+              <span className="text-2xl font-black text-primary">LKR {total.toFixed(2)}</span>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="cash-received" className="text-sm font-bold text-slate-600">Cash Received</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">LKR</span>
+                <Input 
+                  id="cash-received"
+                  type="number"
+                  className="pl-12 h-14 text-xl font-bold rounded-xl border-2 focus:border-primary"
+                  placeholder="0.00"
+                  value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {parseFloat(cashReceived) >= total && (
+              <div className="p-4 bg-green-50 rounded-xl border border-green-100 flex justify-between items-center animate-in fade-in slide-in-from-top-2">
+                <span className="font-bold text-green-700">Balance to Return</span>
+                <span className="text-2xl font-black text-green-700">LKR {balance.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCashDialogOpen(false)} className="rounded-xl">Cancel</Button>
+            <Button 
+              onClick={() => completeTransaction('cash')} 
+              className="bg-primary text-white rounded-xl px-8 font-bold"
+              disabled={!cashReceived || parseFloat(cashReceived) < total}
+            >
+              Complete Sale
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Bill Prompt */}
+      <Dialog open={showPrintPrompt} onOpenChange={setShowPrintPrompt}>
+        <DialogContent className="sm:max-w-[400px] text-center">
+          <DialogHeader>
+            <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+              <ReceiptText size={32} />
+            </div>
+            <DialogTitle className="text-2xl font-black">Sale Completed!</DialogTitle>
+            <DialogDescription>The transaction has been recorded successfully.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-500">Would you like to print the receipt for this order?</p>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowPrintPrompt(false)} className="flex-1 rounded-xl">No, Skip</Button>
+            <Button onClick={handlePrint} className="flex-1 bg-primary text-white rounded-xl font-bold gap-2">
+              <Printer size={18} /> Print Bill
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

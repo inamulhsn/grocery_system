@@ -20,7 +20,7 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) => {
     <div className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm border border-gray-100 mb-2">
       <div className="flex-1">
         <h4 className="font-semibold text-gray-800">{item.name}</h4>
-        <p className="text-sm text-gray-500">${item.price.toFixed(2)} / unit</p>
+        <p className="text-sm text-gray-500">LKR {item.price.toFixed(2)} / unit</p>
       </div>
       
       <div className="flex items-center gap-3">
@@ -44,8 +44,8 @@ const CartItem = ({ item, onUpdateQuantity, onRemove }: CartItemProps) => {
           </Button>
         </div>
         
-        <div className="w-20 text-right font-bold text-primary">
-          ${(item.price * item.quantity).toFixed(2)}
+        <div className="w-24 text-right font-bold text-primary">
+          LKR {(item.price * item.quantity).toFixed(2)}
         </div>
         
         <Button 

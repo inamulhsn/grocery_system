@@ -1500,11 +1500,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\hasan\\dyad-apps\\friendly-dolphin-wiggle\\backend\\GroceryApi\\GroceryApi.csproj",
+      "projectUniqueName": "C:\\Users\\hasan\\dyad-apps\\grocery_system\\backend\\GroceryApi\\GroceryApi.csproj",
       "projectName": "GroceryApi",
-      "projectPath": "C:\\Users\\hasan\\dyad-apps\\friendly-dolphin-wiggle\\backend\\GroceryApi\\GroceryApi.csproj",
+      "projectPath": "C:\\Users\\hasan\\dyad-apps\\grocery_system\\backend\\GroceryApi\\GroceryApi.csproj",
       "packagesPath": "C:\\Users\\hasan\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\hasan\\dyad-apps\\friendly-dolphin-wiggle\\backend\\GroceryApi\\obj\\",
+      "outputPath": "C:\\Users\\hasan\\dyad-apps\\grocery_system\\backend\\GroceryApi\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\hasan\\AppData\\Roaming\\NuGet\\NuGet.Config",

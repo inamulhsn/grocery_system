@@ -76,10 +76,24 @@ namespace GroceryApi.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(string id, User user)
+        public async Task<IActionResult> UpdateUser(string id, User updatedUser)
         {
-            if (id != user.Id) return BadRequest();
-            _context.Entry(user).State = EntityState.Modified;
+            var existingUser = await _context.Users.FindAsync(id);
+            if (existingUser == null) return NotFound();
+
+            // Update only the fields sent from the frontend
+            existingUser.FullName = updatedUser.FullName;
+            existingUser.Email = updatedUser.Email;
+            existingUser.Username = updatedUser.Username;
+            existingUser.Role = updatedUser.Role;
+            existingUser.PermissionsJson = updatedUser.PermissionsJson;
+
+            // Only update password if a new one is provided
+            if (!string.IsNullOrEmpty(updatedUser.Password))
+            {
+                existingUser.Password = updatedUser.Password;
+            }
+
             await _context.SaveChangesAsync();
             return NoContent();
         }

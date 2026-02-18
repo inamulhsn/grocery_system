@@ -13,20 +13,20 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter,
-  DialogTrigger
+  DialogFooter
 } from "@/components/ui/dialog";
 import { Product } from '@/types/grocery';
 import BarcodeGenerator from './BarcodeGenerator';
 import { showError, showSuccess } from '@/utils/toast';
-import { api } from '@/utils/api'; // Don't forget to import this!
+import { api } from '@/utils/api';
 
 interface InventoryManagerProps {
   products: Product[];
-  onProductChanged: () => void; // Changed from onUpdateProducts
+  onProductChanged: () => void;
 }
 
-const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps) => {  const [searchQuery, setSearchQuery] = useState('');
+const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps) => {
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -36,11 +36,11 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
     sku: '',
     category: '',
     price: 0,
-    cost_price: 0,
-    stock_quantity: 0,
-    refill_threshold: 10,
+    costPrice: 0,
+    stockQuantity: 0,
+    refillThreshold: 10,
     unit: 'pcs',
-    discount_percentage: 0
+    discountPercentage: 0
   });
 
   const filteredProducts = products.filter(p => 
@@ -55,11 +55,11 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
       sku: `GR-${Math.floor(100 + Math.random() * 900)}`,
       category: '',
       price: 0,
-      cost_price: 0,
-      stock_quantity: 0,
-      refill_threshold: 10,
+      costPrice: 0,
+      stockQuantity: 0,
+      refillThreshold: 10,
       unit: 'pcs',
-      discount_percentage: 0
+      discountPercentage: 0
     });
     setIsDialogOpen(true);
   };
@@ -74,14 +74,14 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
     try {
       const productToSave = {
         ...formData,
-        id: editingProduct ? editingProduct.id : undefined, // Let backend generate ID for new items
+        id: editingProduct ? editingProduct.id : undefined,
       } as Product;
 
       await api.saveProduct(productToSave);
       
       showSuccess(editingProduct ? "Product updated" : "Product created");
       setIsDialogOpen(false);
-      onProductChanged(); // Tell Index.tsx to reload data
+      onProductChanged();
     } catch (e) {
       showError("Failed to save product");
     }
@@ -92,12 +92,13 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
       try {
         await api.deleteProduct(id);
         showSuccess("Product deleted");
-        onProductChanged(); // Tell Index.tsx to reload data
+        onProductChanged();
       } catch (e) {
         showError("Failed to delete product");
       }
     }
   };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -139,30 +140,30 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <Badge 
-                        variant={product.stock_quantity <= product.refill_threshold ? "destructive" : "secondary"} 
+                        variant={product.stockQuantity <= product.refillThreshold ? "destructive" : "secondary"} 
                         className="rounded-md w-fit font-black text-sm"
                       >
-                        {product.stock_quantity} {product.unit}
+                        {product.stockQuantity} {product.unit}
                       </Badge>
                       <span className="text-[10px] text-slate-400 font-bold uppercase">
-                        Refill at: {product.refill_threshold}
+                        Refill at: {product.refillThreshold}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-bold">${product.price.toFixed(2)}</span>
-                      {product.discount_percentage > 0 && (
+                      <span className="font-bold">LKR {product.price.toFixed(2)}</span>
+                      {product.discountPercentage > 0 && (
                         <span className="text-[10px] text-green-600 font-bold">
-                          Net: ${(product.price * (1 - product.discount_percentage / 100)).toFixed(2)}
+                          Net: LKR {(product.price * (1 - product.discountPercentage / 100)).toFixed(2)}
                         </span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {product.discount_percentage > 0 ? (
+                    {product.discountPercentage > 0 ? (
                       <Badge className="bg-green-100 text-green-700 border-green-200">
-                        {product.discount_percentage}% OFF
+                        {product.discountPercentage}% OFF
                       </Badge>
                     ) : (
                       <span className="text-slate-300 text-xs">No discount</span>
@@ -242,16 +243,16 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Cost Price ($)</Label>
-                <Input type="number" value={formData.cost_price} onChange={e => setFormData({...formData, cost_price: parseFloat(e.target.value)})} />
+                <Label>Cost Price (LKR)</Label>
+                <Input type="number" value={formData.costPrice} onChange={e => setFormData({...formData, costPrice: parseFloat(e.target.value) || 0})} />
               </div>
               <div className="space-y-2">
-                <Label>Selling Price ($)</Label>
-                <Input type="number" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} />
+                <Label>Selling Price (LKR)</Label>
+                <Input type="number" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value) || 0})} />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1 text-green-600"><Percent size={14} /> Discount (%)</Label>
-                <Input type="number" value={formData.discount_percentage} onChange={e => setFormData({...formData, discount_percentage: parseFloat(e.target.value)})} />
+                <Input type="number" value={formData.discountPercentage} onChange={e => setFormData({...formData, discountPercentage: parseFloat(e.target.value) || 0})} />
               </div>
             </div>
 
@@ -260,21 +261,18 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
                 <Label className="flex items-center gap-2 text-primary"><Box size={16} /> Current Stock</Label>
                 <Input 
                   type="number" 
-                  value={formData.stock_quantity} 
-                  onChange={e => setFormData({...formData, stock_quantity: parseInt(e.target.value)})} 
+                  value={formData.stockQuantity} 
+                  onChange={e => setFormData({...formData, stockQuantity: parseInt(e.target.value) || 0})} 
                 />
               </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-orange-600"><AlertCircle size={16} /> Refill Threshold</Label>
                 <Input 
                   type="number" 
-                  value={formData.refill_threshold} 
-                  onChange={e => setFormData({...formData, refill_threshold: parseInt(e.target.value)})} 
+                  value={formData.refillThreshold} 
+                  onChange={e => setFormData({...formData, refillThreshold: parseInt(e.target.value) || 0})} 
                 />
               </div>
-              <p className="col-span-2 text-[10px] text-slate-400 mt-1 font-medium uppercase tracking-wider">
-                Product will show in "Refill" list when stock drops to or below the threshold.
-              </p>
             </div>
           </div>
           <DialogFooter>

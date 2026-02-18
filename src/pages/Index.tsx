@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ShoppingCart, Package, Settings, TrendingUp, Receipt, 
-  ClipboardList, LogOut, ShieldCheck
+  ClipboardList, LogOut, ShieldCheck, DollarSign
 } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
@@ -21,6 +21,7 @@ import { api } from '@/utils/api';
 const Index = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [dailyRevenue, setDailyRevenue] = useState<number>(0);
   
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -33,13 +34,15 @@ const Index = () => {
 
   const loadData = async () => {
     try {
-      const [productsData, salesData, brandingData] = await Promise.all([
+      const [productsData, salesData, brandingData , totalData] = await Promise.all([
         api.getProducts(),
         api.getSales(),
-        api.getBranding()
+        api.getBranding(),
+        api.getDailyTotal()
       ]);
       setProducts(productsData);
       setSales(salesData);
+      setDailyRevenue(totalData);
       if (brandingData) setBranding(brandingData);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -60,10 +63,10 @@ const Index = () => {
   const handleCompleteSale = async (newSale: Sale) => {
     try {
       await api.createSale(newSale);
-      showSuccess("Sale recorded successfully!");
-      loadData();
+      showSuccess("Transaction completed!");
+      await loadData();
     } catch (error) {
-      showError("Failed to record sale.");
+      showError("Failed to process sale.");
     }
   };
 
@@ -106,7 +109,7 @@ const Index = () => {
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20 overflow-hidden">
-              {branding.logoUrl ? <img src={branding.logoUrl} className="w-full h-full object-cover" /> : <TrendingUp size={24} />}
+              {branding.logoUrl ? <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <TrendingUp size={24} />}
             </div>
             <h1 className="text-xl font-black tracking-tight">{branding.systemName}</h1>
             {currentUser?.role === 'admin' && (
@@ -117,6 +120,17 @@ const Index = () => {
           </div>
           
           <div className="flex items-center gap-6">
+            {currentUser?.role === 'admin' && (
+              <div className="hidden lg:flex flex-col items-end px-4 border-r border-slate-200">
+                <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1">
+                  <DollarSign size={10} /> Today's Revenue
+                </span>
+                <span className="text-lg font-black text-emerald-600">
+                  LKR {dailyRevenue.toFixed(2)}
+                </span>
+              </div>
+            )}
+
             <div className="text-right hidden md:block">
               <p className="text-sm font-bold">{currentUser?.full_name}</p>
               <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser?.role}</p>

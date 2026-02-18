@@ -8,4 +8,4 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = GroceryApi
-build_property.ProjectDir = C:\Users\hasan\dyad-apps\friendly-dolphin-wiggle\backend\GroceryApi\
+build_property.ProjectDir = C:\Users\hasan\dyad-apps\grocery_system\backend\GroceryApi\

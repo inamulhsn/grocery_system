@@ -37,25 +37,25 @@ const SalesHistory = ({ sales }: SalesHistoryProps) => {
                 <div className="flex flex-1 items-center justify-between text-left">
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      sale.payment_method === 'cash' ? 'bg-green-50 text-green-600' : 
-                      sale.payment_method === 'card' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                      sale.paymentMethod === 'cash' ? 'bg-green-50 text-green-600' : 
+                      sale.paymentMethod === 'card' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
                     }`}>
-                      {sale.payment_method === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
+                      {sale.paymentMethod === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
                     </div>
                     <div>
                       <p className="font-bold text-slate-800">Order #{sale.id.slice(-4)}</p>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         <span className="flex items-center gap-1">
                           <Clock size={12} /> 
-                          {sale.created_at ? new Date(sale.created_at).toLocaleTimeString() : 'N/A'}
+                          {sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString() : 'N/A'}
                         </span>
-                        <span className="capitalize">• {sale.payment_method || 'Unknown'}</span>
+                        <span className="capitalize">• {sale.paymentMethod || 'Unknown'}</span>
                       </div>
                     </div>
                   </div>
                   <div className="mr-4 text-right">
                     <p className="text-lg font-black text-primary">
-                      ${(sale.total_amount || 0).toFixed(2)}
+                      LKR {(sale.totalAmount || 0).toFixed(2)}
                     </p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       {(sale.items?.length || 0)} Items
@@ -77,11 +77,11 @@ const SalesHistory = ({ sales }: SalesHistoryProps) => {
                     <tbody className="divide-y divide-slate-50">
                       {sale.items?.map((item, idx) => (
                         <tr key={idx} className="text-slate-600">
-                          <td className="py-2 font-medium">{item.product_name}</td>
+                          <td className="py-2 font-medium">{item.productName}</td>
                           <td className="py-2 text-center">{item.quantity}</td>
-                          <td className="py-2 text-right">${(item.unit_price || 0).toFixed(2)}</td>
+                          <td className="py-2 text-right">LKR {(item.unitPrice || 0).toFixed(2)}</td>
                           <td className="py-2 text-right font-bold text-slate-800">
-                            ${(item.total_price || 0).toFixed(2)}
+                            LKR {(item.totalPrice || 0).toFixed(2)}
                           </td>
                         </tr>
                       ))}

@@ -13,7 +13,7 @@ interface RefillListProps {
 
 const RefillList = ({ products }: RefillListProps) => {
   // Filter products where stock is at or below their specific threshold
-  const lowStockProducts = products.filter(p => p.stock_quantity <= p.refill_threshold);
+  const lowStockProducts = products.filter(p => p.stockQuantity <= p.refillThreshold);
 
   if (lowStockProducts.length === 0) {
     return (
@@ -48,9 +48,9 @@ const RefillList = ({ products }: RefillListProps) => {
               </div>
               <div className="text-right">
                 <Badge variant="outline" className="bg-white text-red-600 border-red-200 font-black">
-                  {product.stock_quantity} {product.unit} left
+                  {product.stockQuantity} {product.unit} left
                 </Badge>
-                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Threshold: {product.refill_threshold}</p>
+                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Threshold: {product.refillThreshold}</p>
               </div>
             </div>
             

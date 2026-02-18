@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "0l/fP4x1B9YvlR4BOA15pXvz0wgL8jzfarLUbnbKOxVadAd/WWao3iMa10p5NT9PLnXUvVZdo9QEytI0Nt/hIQ==",
+  "dgSpecHash": "HDOopIlTsB6uCmUqPE8GIyAifnxzyw/3dkIQD39GGBd5lFKezTzUHIBaEtapPLFN/0+2FxjxUiCYBt17mxAiuw==",
   "success": true,
-  "projectFilePath": "C:\\Users\\hasan\\dyad-apps\\friendly-dolphin-wiggle\\backend\\GroceryApi\\GroceryApi.csproj",
+  "projectFilePath": "C:\\Users\\hasan\\dyad-apps\\grocery_system\\backend\\GroceryApi\\GroceryApi.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\hasan\\.nuget\\packages\\humanizer.core\\2.8.26\\humanizer.core.2.8.26.nupkg.sha512",
     "C:\\Users\\hasan\\.nuget\\packages\\microsoft.csharp\\4.7.0\\microsoft.csharp.4.7.0.nupkg.sha512",

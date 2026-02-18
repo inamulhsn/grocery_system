@@ -32,30 +32,29 @@ export interface Product {
   name: string;
   category: string;
   price: number;
-  cost_price: number;
-  stock_quantity: number;
-  refill_threshold: number;
+  costPrice: number;           // Changed from cost_price
+  stockQuantity: number;       // Changed from stock_quantity
+  refillThreshold: number;     // Changed from refill_threshold
   unit: string;
-  discount_percentage: number;
-  barcode_url?: string;
+  discountPercentage: number;  // Changed from discount_percentage
+  barcodeUrl?: string;         // Changed from barcode_url
 }
-
 export interface SaleItem {
   id: string;
-  product_id: string;
-  product_name: string;
+  productId: string;
+  productName: string;
   quantity: number;
-  unit_price: number;
-  discount_amount: number;
-  total_price: number;
+  unitPrice: number;
+  discountAmount: number;
+  totalPrice: number;
 }
 
 export interface Sale {
   id: string;
-  created_at: string;
-  total_amount: number;
-  payment_method: 'cash' | 'card' | 'upi';
-  cashier_id: string;
+  createdAt: string;
+  totalAmount: number;
+  paymentMethod: 'cash' | 'card' | 'upi';
+  cashierId: string;
   items: SaleItem[];
 }
 
