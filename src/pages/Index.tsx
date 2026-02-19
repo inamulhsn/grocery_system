@@ -4,17 +4,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ShoppingCart, Package, Settings, TrendingUp, Receipt, 
-  ClipboardList, LogOut, ShieldCheck, DollarSign, BarChart3
+  ClipboardList, LogOut, ShieldCheck, DollarSign, BarChart3, History, Users, Truck
 } from 'lucide-react';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
 import UserManagement from '@/components/admin/UserManagement';
 import SalesHistory from '@/components/sales/SalesHistory';
 import RefillList from '@/components/inventory/RefillList';
+import ActivityLogs from '@/components/admin/ActivityLogs';
+import CustomerManager from '@/components/customers/CustomerManager';
+import SupplierManager from '@/components/suppliers/SupplierManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Product, Sale, Profile, SystemSettings, UserPermissions } from '@/types/grocery';
+import { ModeToggle } from "@/components/mode-toggle";
+import { Product, Sale, Profile, SystemSettings, UserPermissions, ActivityLog } from '@/types/grocery';
 import { showSuccess, showError } from '@/utils/toast';
 import { api } from '@/utils/api';
 
@@ -24,6 +28,7 @@ const Index = () => {
   
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [branding, setBranding] = useState<SystemSettings>({ systemName: 'GroceryPro', logoUrl: '' });
 
   const [currentUser, setCurrentUser] = useState<Profile | null>(() => {
@@ -33,13 +38,17 @@ const Index = () => {
 
   const loadData = async () => {
     try {
-      const [productsData, salesData, brandingData] = await Promise.all([
+      const isAdmin = currentUser?.role === 'admin';
+      const promises = [
         api.getProducts(),
         api.getSales(),
-        api.getBranding()
-      ]);
-      setProducts(productsData);
-      setSales(salesData);
+        api.getBranding(),
+        isAdmin ? api.getActivityLogs() : Promise.resolve([] as ActivityLog[])
+      ] as const;
+      const [productsData, salesData, brandingData, logsData] = await Promise.all(promises);
+      setProducts(productsData || []);
+      setSales(salesData || []);
+      setLogs(logsData || []);
       if (brandingData) setBranding(brandingData);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -57,7 +66,6 @@ const Index = () => {
     loadData();
   }, [currentUser, navigate]);
 
-  // Calculate Daily Stats
   const stats = useMemo(() => {
     const today = new Date().toDateString();
     const todaysSales = sales.filter(s => new Date(s.createdAt).toDateString() === today);
@@ -96,6 +104,7 @@ const Index = () => {
       const updated = await api.saveBranding(newBranding);
       setBranding(updated);
       showSuccess("System branding updated!");
+      await loadData();
     } catch (error) {
       showError("Failed to update branding.");
     }
@@ -103,10 +112,11 @@ const Index = () => {
 
   const handleUpdateAdminProfile = async (updatedProfile: Profile) => {
     try {
-      const updated = await api.updateUser(updatedProfile);
-      setCurrentUser(updated);
-      localStorage.setItem('grocery_user', JSON.stringify(updated));
+      await api.updateUser(updatedProfile);
+      setCurrentUser(updatedProfile);
+      localStorage.setItem('grocery_user', JSON.stringify(updatedProfile));
       showSuccess("Admin profile updated!");
+      await loadData();
     } catch (error) {
       showError("Failed to update profile.");
     }
@@ -117,42 +127,49 @@ const Index = () => {
     navigate('/login');
   };
 
+  // Check if user has view access to a section
   const hasAccess = (section: keyof UserPermissions) => {
     if (currentUser?.role === 'admin') return true;
-    return currentUser?.permissions?.[section]?.view || false;
+    return currentUser?.permissions?.[section]?.view ?? false;
   };
 
-  if (loading) return <div className="p-10 text-center font-bold text-slate-400 animate-pulse">Initializing Secure Terminal...</div>;
+  // Check if user has specific permission (view/create/edit/delete) for a section
+  const hasPermission = (section: keyof UserPermissions, action: 'view' | 'create' | 'edit' | 'delete') => {
+    if (currentUser?.role === 'admin') return true;
+    return currentUser?.permissions?.[section]?.[action] ?? false;
+  };
+
+  if (loading) return <div className="p-10 text-center font-bold text-slate-400 dark:text-slate-500 animate-pulse">Initializing Secure Terminal...</div>;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20 overflow-hidden">
-              {branding.logoUrl ? <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <TrendingUp size={24} />}
+            <div className="w-10 h-10 bg-primary dark:bg-slate-700 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20 dark:shadow-slate-900/50 overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
+              {branding.logoUrl ? <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover dark:brightness-95" /> : <TrendingUp size={24} className="text-white dark:text-slate-200" />}
             </div>
-            <h1 className="text-xl font-black tracking-tight">{branding.systemName}</h1>
+            <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">{branding.systemName}</h1>
             {currentUser?.role === 'admin' && (
-              <Badge className="ml-2 bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-50 gap-1">
+              <Badge className="ml-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 gap-1">
                 <ShieldCheck size={12} /> Super Admin
               </Badge>
             )}
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             {currentUser?.role === 'admin' && (
-              <div className="hidden lg:flex items-center gap-6 px-4 border-r border-slate-200">
+              <div className="hidden lg:flex items-center gap-6 px-4 border-r border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-black tracking-widest flex items-center gap-1">
                     <DollarSign size={10} /> Today's Gross
                   </span>
-                  <span className="text-sm font-black text-slate-900">
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">
                     LKR {stats.grossTotal.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-[10px] text-emerald-600 uppercase font-black tracking-widest flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-black tracking-widest flex items-center gap-1">
                     <BarChart3 size={10} /> Today's Profit
                   </span>
                   <span className="text-lg font-black text-emerald-600">
@@ -163,51 +180,92 @@ const Index = () => {
             )}
 
             <div className="text-right hidden md:block">
-              <p className="text-sm font-bold">{currentUser?.full_name}</p>
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{currentUser?.role}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{currentUser?.full_name}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-widest">{currentUser?.role}</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="rounded-xl font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 gap-2 px-4">
-              <LogOut size={16} /> Logout
-            </Button>
+            
+            <div className="flex items-center gap-2">
+              <ModeToggle />
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="rounded-xl font-bold text-slate-500 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 gap-2 px-4">
+                <LogOut size={16} /> Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-[1600px] mx-auto p-6">
         <Tabs defaultValue={hasAccess('pos') ? "pos" : "inventory"} className="space-y-6">
-          <TabsList className="bg-white border border-slate-200 p-1 h-12 rounded-xl shadow-sm overflow-x-auto max-w-full justify-start">
+          <TabsList className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 h-12 rounded-xl shadow-sm overflow-x-auto max-w-full justify-start">
             {hasAccess('pos') && (
-              <TabsTrigger value="pos" className="rounded-lg px-6"><ShoppingCart className="mr-2" size={18} /> POS</TabsTrigger>
+              <TabsTrigger value="pos" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><ShoppingCart className="mr-2" size={18} /> POS</TabsTrigger>
             )}
             {hasAccess('analytics') && (
-              <TabsTrigger value="sales" className="rounded-lg px-6"><Receipt className="mr-2" size={18} /> Sales</TabsTrigger>
+              <TabsTrigger value="sales" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Receipt className="mr-2" size={18} /> Sales</TabsTrigger>
             )}
             {hasAccess('inventory') && (
-              <TabsTrigger value="inventory" className="rounded-lg px-6"><Package className="mr-2" size={18} /> Inventory</TabsTrigger>
+              <TabsTrigger value="inventory" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Package className="mr-2" size={18} /> Inventory</TabsTrigger>
             )}
             {hasAccess('inventory') && (
-              <TabsTrigger value="refill" className="rounded-lg px-6"><ClipboardList className="mr-2" size={18} /> Refill</TabsTrigger>
+              <TabsTrigger value="refill" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><ClipboardList className="mr-2" size={18} /> Refill</TabsTrigger>
+            )}
+            {/* Customers, Suppliers, Activity Logs, and Admin Panel are ADMIN ONLY */}
+            {currentUser?.role === 'admin' && (
+              <TabsTrigger value="customers" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Users className="mr-2" size={18} /> Customers</TabsTrigger>
             )}
             {currentUser?.role === 'admin' && (
-              <TabsTrigger value="settings" className="rounded-lg px-6"><Settings className="mr-2" size={18} /> Admin Panel</TabsTrigger>
+              <TabsTrigger value="suppliers" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Truck className="mr-2" size={18} /> Suppliers</TabsTrigger>
+            )}
+            {currentUser?.role === 'admin' && (
+              <TabsTrigger value="logs" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><History className="mr-2" size={18} /> Activity Logs</TabsTrigger>
+            )}
+            {currentUser?.role === 'admin' && (
+              <TabsTrigger value="settings" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Settings className="mr-2" size={18} /> Admin Panel</TabsTrigger>
             )}
           </TabsList>
 
-          <TabsContent value="pos" className="mt-0 outline-none">
-            <POSInterface products={products} onCompleteSale={handleCompleteSale} />
-          </TabsContent>
+          {hasAccess('pos') && (
+            <TabsContent value="pos" className="mt-0 outline-none">
+              <POSInterface products={products} onCompleteSale={handleCompleteSale} />
+            </TabsContent>
+          )}
 
-          <TabsContent value="sales" className="mt-0 outline-none">
-            <SalesHistory sales={sales} />
-          </TabsContent>
+          {hasAccess('analytics') && (
+            <TabsContent value="sales" className="mt-0 outline-none">
+              <SalesHistory sales={sales} />
+            </TabsContent>
+          )}
 
-          <TabsContent value="inventory" className="mt-0 outline-none">
-            <InventoryManager products={products} onProductChanged={loadData} />
-          </TabsContent>
+          {hasAccess('inventory') && (
+            <TabsContent value="inventory" className="mt-0 outline-none">
+              <InventoryManager products={products} onProductChanged={loadData} />
+            </TabsContent>
+          )}
 
-          <TabsContent value="refill" className="mt-0 outline-none">
-            <RefillList products={products} />
-          </TabsContent>
+          {hasAccess('inventory') && (
+            <TabsContent value="refill" className="mt-0 outline-none">
+              <RefillList products={products} />
+            </TabsContent>
+          )}
+
+          {/* Admin-only sections */}
+          {currentUser?.role === 'admin' && (
+            <TabsContent value="customers" className="mt-0 outline-none">
+              <CustomerManager />
+            </TabsContent>
+          )}
+
+          {currentUser?.role === 'admin' && (
+            <TabsContent value="suppliers" className="mt-0 outline-none">
+              <SupplierManager />
+            </TabsContent>
+          )}
+
+          {currentUser?.role === 'admin' && (
+            <TabsContent value="logs" className="mt-0 outline-none">
+              <ActivityLogs logs={logs} onRevertLog={async (id) => { await api.revertActivityLog(id); await loadData(); }} />
+            </TabsContent>
+          )}
 
           {currentUser?.role === 'admin' && (
             <TabsContent value="settings" className="mt-0 outline-none">

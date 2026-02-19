@@ -14,6 +14,9 @@ namespace GroceryApi.Models
         public string Role { get; set; } // "admin", "cashier", "manager"
         
         // We store the permissions as a JSON string to keep it simple
-        public string PermissionsJson { get; set; } 
+        public string PermissionsJson { get; set; }
+
+        /// <summary>Admin/staff contact number (e.g. for SMS alerts).</summary>
+        public string PhoneNumber { get; set; } 
     }
 }

@@ -17,12 +17,12 @@ const RefillList = ({ products }: RefillListProps) => {
 
   if (lowStockProducts.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-200 text-center">
-        <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-12 shadow-sm border border-slate-200 dark:border-slate-800 text-center">
+        <div className="w-16 h-16 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
           <PackagePlus size={32} />
         </div>
-        <h2 className="text-xl font-bold text-slate-800">Inventory is Healthy</h2>
-        <p className="text-slate-500">All products have sufficient stock levels based on their thresholds.</p>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Inventory is Healthy</h2>
+        <p className="text-slate-500 dark:text-slate-400">All products have sufficient stock levels based on their thresholds.</p>
       </div>
     );
   }
@@ -31,35 +31,35 @@ const RefillList = ({ products }: RefillListProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Refill Required</h2>
-          <p className="text-slate-500">Products that have reached their custom refill thresholds</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Refill Required</h2>
+          <p className="text-slate-500 dark:text-slate-400">Products that have reached their custom refill thresholds</p>
         </div>
-        <Badge variant="destructive" className="px-3 py-1 animate-pulse">
+        <Badge variant="destructive" className="px-3 py-1 animate-pulse dark:bg-red-900/50 dark:text-red-300 dark:border-red-800">
           {lowStockProducts.length} Items Low
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {lowStockProducts.map((product) => (
-          <Card key={product.id} className="p-5 border-red-100 bg-red-50/30 shadow-sm hover:shadow-md transition-all">
+          <Card key={product.id} className="p-5 border-red-100 dark:border-red-900/50 bg-red-50/30 dark:bg-red-900/20 shadow-sm hover:shadow-md transition-all">
             <div className="flex justify-between items-start mb-4">
-              <div className="w-10 h-10 rounded-xl bg-white border border-red-100 flex items-center justify-center text-red-500">
+              <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-red-100 dark:border-red-800 flex items-center justify-center text-red-500 dark:text-red-400">
                 <AlertTriangle size={20} />
               </div>
               <div className="text-right">
-                <Badge variant="outline" className="bg-white text-red-600 border-red-200 font-black">
+                <Badge variant="outline" className="bg-white dark:bg-slate-800 text-red-600 dark:text-red-300 border-red-200 dark:border-red-800 font-black">
                   {product.stockQuantity} {product.unit} left
                 </Badge>
-                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Threshold: {product.refillThreshold}</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1 uppercase">Threshold: {product.refillThreshold}</p>
               </div>
             </div>
             
             <div className="mb-6">
-              <h3 className="font-bold text-slate-800 text-lg">{product.name}</h3>
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">{product.category} • SKU: {product.sku}</p>
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{product.name}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest font-bold">{product.category} • SKU: {product.sku}</p>
             </div>
 
-            <Button className="w-full bg-slate-900 hover:bg-black text-white rounded-xl group">
+            <Button className="w-full bg-slate-900 hover:bg-black dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl group">
               Create Purchase Order <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Card>

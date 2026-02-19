@@ -87,6 +87,7 @@ namespace GroceryApi.Controllers
             existingUser.Username = updatedUser.Username;
             existingUser.Role = updatedUser.Role;
             existingUser.PermissionsJson = updatedUser.PermissionsJson;
+            existingUser.PhoneNumber = updatedUser.PhoneNumber ?? "";
 
             // Only update password if a new one is provided
             if (!string.IsNullOrEmpty(updatedUser.Password))

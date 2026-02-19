@@ -10,12 +10,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 8080, // Explicitly set frontend to 8080 since that's where you are
+    port: 8080,
     proxy: {
       '/api': {
-        target: 'https://localhost:5001', // <--- CHANGED TO HTTPS & 5001
+        target: 'http://localhost:5000',
         changeOrigin: true,
-        secure: false, // <--- REQUIRED for .NET local HTTPS
+        secure: false,
       }
     }
   }

@@ -10,21 +10,19 @@ namespace GroceryApi.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<Sale> Sales { get; set; }
         public DbSet<SaleItem> SaleItems { get; set; }
-
-        // --- THESE WERE MISSING ---
         public DbSet<User> Users { get; set; }
         public DbSet<SystemSettings> SystemSettings { get; set; }
         public DbSet<FeatureToggles> FeatureToggles { get; set; }
+        public DbSet<ActivityLog> ActivityLogs { get; set; }
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Product>()
-                .HasIndex(p => p.Sku)
-                .IsUnique();
-
-            modelBuilder.Entity<User>()
-                .HasIndex(u => u.Username)
-                .IsUnique();
+            modelBuilder.Entity<Sale>()
+                .HasMany(s => s.Items)
+                .WithOne()
+                .HasForeignKey(si => si.SaleId);
         }
     }
 }

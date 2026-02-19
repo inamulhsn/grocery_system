@@ -50,10 +50,39 @@ const Login = () => {
         password: formData.password
       });
 
-      // 2. If successful, save user to LocalStorage (so you stay logged in)
-      localStorage.setItem('grocery_user', JSON.stringify(user));
+      // 2. Normalize to Profile shape (full_name, phone_number) and save to LocalStorage
+      // Parse permissions from JSON string if needed
+      let permissions = {};
+      if (user.permissionsJson) {
+        try {
+          permissions = typeof user.permissionsJson === 'string' ? JSON.parse(user.permissionsJson) : user.permissionsJson;
+        } catch (e) {
+          console.error('Failed to parse permissions', e);
+        }
+      }
       
-      showSuccess(`Welcome back, ${user.fullName}!`);
+      // If admin, ensure full permissions
+      if (user.role === 'admin') {
+        permissions = {
+          pos: { view: true, create: true, edit: true, delete: true },
+          inventory: { view: true, create: true, edit: true, delete: true },
+          analytics: { view: true, create: true, edit: true, delete: true },
+          admin: { view: true, create: true, edit: true, delete: true }
+        };
+      }
+      
+      const profile = {
+        id: user.id,
+        username: user.username,
+        email: user.email ?? '',
+        full_name: user.fullName ?? user.full_name ?? user.username ?? 'User',
+        role: user.role,
+        permissions: permissions,
+        phone_number: user.phoneNumber ?? user.phone_number ?? ''
+      };
+      localStorage.setItem('grocery_user', JSON.stringify(profile));
+
+      showSuccess(`Welcome back, ${profile.full_name}!`);
       
       // 3. Go to Dashboard
       navigate('/');
@@ -66,33 +95,33 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-6 transition-colors">
       <div className="w-full max-w-[450px] space-y-8">
         <div className="text-center space-y-2">
-          <div className="inline-flex w-16 h-16 bg-primary rounded-2xl items-center justify-center text-white shadow-xl shadow-primary/20 mb-4 overflow-hidden">
+          <div className="inline-flex w-16 h-16 bg-primary dark:bg-slate-700 rounded-2xl items-center justify-center text-white dark:text-slate-100 shadow-xl shadow-primary/20 dark:shadow-slate-900/50 mb-4 overflow-hidden ring-2 ring-white/10 dark:ring-slate-600/50">
             {branding.logoUrl ? (
-              <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+              <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-cover dark:brightness-95" />
             ) : (
-              <TrendingUp size={32} />
+              <TrendingUp size={32} className="text-white dark:text-slate-200" />
             )}
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
             {branding.systemName}
           </h1>
-          <p className="text-slate-500 font-medium">Management System Terminal</p>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Management System Terminal</p>
         </div>
 
-        <Card className="p-8 border-none shadow-2xl shadow-slate-200/60 rounded-3xl bg-white">
+        <Card className="p-8 border border-slate-200 dark:border-slate-800 shadow-2xl shadow-slate-200/60 dark:shadow-none rounded-3xl bg-white dark:bg-slate-900">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Username</Label>
+              <Label htmlFor="identifier" className="text-slate-700 dark:text-slate-300">Username</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
                 <Input 
                   id="identifier"
                   type="text" 
                   placeholder="admin" 
-                  className="pl-10 h-12 rounded-xl border-slate-200 focus:border-primary transition-all"
+                  className="pl-10 h-12 rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 focus:border-primary transition-all"
                   value={formData.identifier}
                   onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                   required
@@ -102,15 +131,15 @@ const Login = () => {
 
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">Password</Label>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
                 <Input 
                   id="password"
                   type="password" 
                   placeholder="•••••" 
-                  className="pl-10 h-12 rounded-xl border-slate-200 focus:border-primary transition-all"
+                  className="pl-10 h-12 rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 focus:border-primary transition-all"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
@@ -120,7 +149,7 @@ const Login = () => {
 
             <Button 
               type="submit" 
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg group"
+              className="w-full h-12 bg-primary hover:bg-primary/90 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold text-lg group"
               disabled={isLoading}
             >
               {isLoading ? (

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'cashier' | 'manager';
+export type UserRole = 'admin' | 'cashier' | 'manager' | 'hr';
 
 export interface SectionPermissions {
   view: boolean;
@@ -32,13 +32,14 @@ export interface Product {
   name: string;
   category: string;
   price: number;
-  costPrice: number;           // Changed from cost_price
-  stockQuantity: number;       // Changed from stock_quantity
-  refillThreshold: number;     // Changed from refill_threshold
+  costPrice: number;
+  stockQuantity: number;
+  refillThreshold: number;
   unit: string;
-  discountPercentage: number;  // Changed from discount_percentage
-  barcodeUrl?: string;         // Changed from barcode_url
+  discountPercentage: number;
+  barcodeUrl?: string;
 }
+
 export interface SaleItem {
   id: string;
   productId: string;
@@ -56,6 +57,12 @@ export interface Sale {
   paymentMethod: 'cash' | 'card' | 'upi';
   cashierId: string;
   items: SaleItem[];
+  /** Optional. Set when sale is linked to a known customer. */
+  customerId?: string;
+  /** Display name for receipt and sales list. If empty, show as "Customer". */
+  customerName?: string;
+  /** Customer mobile number for the sale. */
+  customerPhone?: string;
 }
 
 export interface SystemSettings {
@@ -63,8 +70,34 @@ export interface SystemSettings {
   logoUrl: string;
 }
 
-export interface FeatureToggles {
-  showProfitMargin: boolean;
-  enableBarcodePrinting: boolean;
-  allowPendingBills: boolean;
+export interface ActivityLog {
+  id: number;
+  userId: string;
+  userName: string;
+  action: string;
+  details: string;
+  timestamp: string;
+  entityType?: string;
+  entityId?: string;
+  revertPayload?: string;
+  /** When set, this log was reverted (action undone); Revert button is hidden. */
+  revertedAt?: string | null;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  mobileNumber: string;
+  whatsAppNumber: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  mobileNumber: string;
+  whatsAppNumber: string;
 }

@@ -17,6 +17,13 @@ namespace GroceryApi.Models
         public string PaymentMethod { get; set; } = "cash"; 
         public string CashierId { get; set; } = "admin";
 
+        /// <summary>Optional. Set when sale is linked to a known customer.</summary>
+        public string CustomerId { get; set; }
+        /// <summary>Display name for receipt and sales list. If empty, show as "Customer".</summary>
+        public string CustomerName { get; set; }
+        /// <summary>Customer mobile number for the sale.</summary>
+        public string CustomerPhone { get; set; }
+
         public List<SaleItem> Items { get; set; } = new List<SaleItem>();
     }
 

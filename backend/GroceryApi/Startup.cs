@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using GroceryApi.Data;
 using Microsoft.OpenApi.Models;
+using System.Text.Json;
 
 namespace GroceryApi
 {
@@ -33,7 +34,12 @@ namespace GroceryApi
                                       .AllowAnyHeader());
             });
 
-            services.AddControllers();
+            services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                    options.JsonSerializerOptions.WriteIndented = true;
+                });
             
             // 3. Configure Swagger (API Documentation)
             services.AddSwaggerGen(c =>
