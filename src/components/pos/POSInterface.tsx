@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, CreditCard, Banknote, ReceiptText, Percent, Printer, User, Phone, Loader2 } from 'lucide-react';
+import { hasPermission } from '@/utils/permissions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -29,7 +30,20 @@ interface POSInterfaceProps {
 type CartLine = Product & { quantity: number; finalPrice: number; discountAmount: number };
 
 const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
+  const canCreateSale = hasPermission('pos','create');
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCustomDialog, setShowCustomDialog] = useState(false);
+  const [customItem, setCustomItem] = useState({ name: '', unitPrice: '', quantity: '1' });
+
+  // when a barcode is scanned it may contain encoded fields separated by |, we use sku
+  const tryParseBarcode = (input: string) => {
+    if (!input.includes('|')) return null;
+    const parts = input.split('|');
+    const sku = parts[0];
+    const details = parts.slice(1).join(' | '); // for toast display
+    return { sku, details };
+  };
   const [cart, setCart] = useState<CartLine[]>([]);
   const [branding, setBranding] = useState<SystemSettings>({ systemName: 'GroceryPro', logoUrl: '' });
   
@@ -59,7 +73,9 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
   );
 
   const addToCart = (product: Product) => {
-    if (product.stockQuantity <= 0) {
+    // if item is manually added (no sku) we skip stock validation
+    const isManual = !product.sku;
+    if (!isManual && product.stockQuantity <= 0) {
       showError("Product out of stock!");
       return;
     }
@@ -104,6 +120,10 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
   const subtotal = Math.round(cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 100) / 100;
   const totalDiscount = Math.round(cart.reduce((sum, item) => sum + (item.discountAmount * item.quantity), 0) * 100) / 100;
   const total = Math.round((subtotal - totalDiscount) * 100) / 100;
+  // sum of manually added items (no sku or synthetic manual- id)
+  const manualGross = Math.round(cart
+    .filter(i => !i.sku || i.id.startsWith('manual-'))
+    .reduce((sum, item) => sum + (item.price * item.quantity), 0) * 100) / 100;
 
   const balance = cashReceived ? Math.max(0, parseFloat(cashReceived) - total) : 0;
 
@@ -226,23 +246,155 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
   };
 
   const handlePrint = () => {
-    window.print();
+    // open a new window with a white-styled receipt and trigger print there
+    if (!lastCompletedSale) {
+      showError('No sale to print');
+      return;
+    }
+
+    const sale = lastCompletedSale;
+    const itemsHtml = sale.items.map(i => `
+      <tr>
+        <td style="padding:8px 0;font-weight:700">${escapeHtml(i.productName)}</td>
+        <td style="text-align:center">${i.quantity}</td>
+        <td style="text-align:right;font-weight:700">LKR ${i.totalPrice.toFixed(2)}</td>
+      </tr>
+      <tr>
+        <td style="font-size:11px;color:#64748b">@ LKR ${i.unitPrice.toFixed(2)}</td>
+        <td></td>
+        <td></td>
+      </tr>
+    `).join('');
+
+    const dateStr = new Date(sale.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Colombo' });
+    const customerName = sale.customerName?.trim() || 'Customer';
+    const total = sale.totalAmount.toFixed(2);
+    const cashRec = sale.paymentMethod === 'cash' && cashReceived ? Number(cashReceived).toFixed(2) : '';
+    const bal = sale.paymentMethod === 'cash' && balance ? Number(balance).toFixed(2) : '';
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Receipt</title>
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;background:#fff;padding:20px}
+        .receipt{max-width:360px;margin:0 auto}
+        .center{text-align:center}
+        table{width:100%;border-collapse:collapse}
+        .muted{color:#64748b;font-size:12px}
+        .total{font-weight:800;font-size:18px}
+      </style>
+    </head><body><div class="receipt">
+      <div class="center">
+        ${branding.logoUrl ? `<img src="${branding.logoUrl}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-bottom:6px"/>` : ''}
+        <div style="font-weight:900;font-size:18px">${escapeHtml(branding.systemName || 'GroceryPro')}</div>
+        <div class="muted">Official Transaction Receipt</div>
+        <div style="margin:10px 0;border-top:1px dashed #e6edf3;padding-top:8px;font-size:12px" class="muted">
+          <div>${dateStr}</div>
+          <div>Order ID: ${escapeHtml(sale.id)}</div>
+          <div>Customer: ${escapeHtml(customerName)}</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr style="color:#64748b;font-size:12px;text-transform:uppercase">
+            <th style="text-align:left">Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+      <div style="border-top:1px solid #e6edf3;margin-top:12px;padding-top:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span>Subtotal</span><span>LKR ${total}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px" class="total"><span>TOTAL</span><span>LKR ${total}</span></div>
+        ${sale.paymentMethod === 'cash' ? `<div style="margin-top:8px;font-size:12px">
+          <div style="display:flex;justify-content:space-between"><span>Cash Received</span><span>LKR ${cashRec}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:700"><span>Balance</span><span>LKR ${bal}</span></div>
+        </div>` : ''}
+        <div style="margin-top:12px;font-size:11px;color:#64748b">Payment Method: <strong>${escapeHtml(sale.paymentMethod)}</strong></div>
+      </div>
+      <div class="center" style="margin-top:14px;font-weight:700">THANK YOU FOR SHOPPING!</div>
+    </div>
+    <script>window.onload = function(){ setTimeout(function(){ window.print(); window.onafterprint = function(){ window.close(); } },200); };</script></body></html>`;
+
+    const win = window.open('', '_blank', 'width=420,height=700');
+    if (!win) {
+      showError('Unable to open print window');
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
     setShowPrintPrompt(false);
-    showSuccess("Bill sent to printer!");
+    showSuccess('Sending bill to printer');
+  };
+
+  // simple HTML escape to avoid injection in generated print window
+  const escapeHtml = (str: any) => {
+    if (!str && str !== 0) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   };
 
   return (
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-120px)]">
       <div className="col-span-12 lg:col-span-7 flex flex-col gap-4">
-        <div className="relative">
+        {!canCreateSale && (
+          <div className="p-3 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 text-center">
+            You have view-only access to POS; you cannot complete sales.
+          </div>
+        )}
+        <div className="relative flex items-center">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={20} />
           <Input 
             className="pl-10 h-14 text-lg rounded-2xl border-2 border-primary/10 dark:border-slate-700 focus:border-primary dark:bg-slate-800 dark:text-slate-100 placeholder:dark:text-slate-500 transition-all shadow-sm"
             placeholder="Search by name or scan barcode..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                // first try parsing as barcode string (sku|...)
+                const parsed = tryParseBarcode(searchQuery);
+                if (parsed) {
+                  const prod = products.find(p => p.sku === parsed.sku);
+                  if (prod) {
+                    addToCart(prod);
+                    showSuccess(`Scanned: ${parsed.details}`);
+                  } else {
+                    showError('Product not found');
+                  }
+                } else if (searchQuery.trim()) {
+                  // user typed something manually; try to resolve by sku or name
+                  const manual = searchQuery.trim().toLowerCase();
+                  // look for exact sku match first
+                  let prod = products.find(p => p.sku.toLowerCase() === manual);
+                  if (!prod) {
+                    // fall back to name prefix match
+                    prod = products.find(p => p.name.toLowerCase().includes(manual));
+                  }
+                  if (prod) {
+                    addToCart(prod);
+                    showSuccess(`Added ${prod.name}`);
+                  } else {
+                    showError('Product not found');
+                  }
+                }
+                setSearchQuery('');
+                e.preventDefault();
+              }
+            }}
             autoFocus
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-2 h-10"
+            onClick={() => setShowCustomDialog(true)}
+          >
+            + Item
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pr-2">
@@ -345,7 +497,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
               <Button 
                 className="h-16 flex-col gap-1 rounded-xl bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
                 onClick={() => handleCheckout('cash')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || !canCreateSale}
               >
                 <Banknote size={20} />
                 <span className="text-[10px] uppercase font-bold">Cash</span>
@@ -353,7 +505,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
               <Button 
                 className="h-16 flex-col gap-1 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
                 onClick={() => handleCheckout('card')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || !canCreateSale}
               >
                 <CreditCard size={20} />
                 <span className="text-[10px] uppercase font-bold">Card</span>
@@ -361,7 +513,7 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
               <Button 
                 className="h-16 flex-col gap-1 rounded-xl bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600"
                 onClick={() => handleCheckout('upi')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || !canCreateSale}
               >
                 <div className="font-black italic text-sm">UPI</div>
                 <span className="text-[10px] uppercase font-bold">Digital</span>
@@ -472,9 +624,99 @@ const POSInterface = ({ products, onCompleteSale }: POSInterfaceProps) => {
         </DialogContent>
       </Dialog>
 
+      {/* Custom item dialog for manual entries */}
+      <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
+        <DialogContent className="sm:max-w-[400px] max-h-[80vh] overflow-y-auto dark:bg-slate-900 dark:border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-slate-900 dark:text-slate-100">Add custom item</DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400">
+              Enter description, price and quantity for a product not in inventory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="custom-name" className="text-sm font-bold text-slate-600 dark:text-slate-300">Name</Label>
+              <Input
+                id="custom-name"
+                value={customItem.name}
+                onChange={(e) => setCustomItem(c => ({ ...c, name: e.target.value }))}
+                className="h-10 rounded-lg dark:bg-slate-900 dark:border-slate-700"
+                placeholder="Item description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="custom-price" className="text-sm font-bold text-slate-600 dark:text-slate-300">Unit Price</Label>
+              <Input
+                id="custom-price"
+                type="number"
+                value={customItem.unitPrice}
+                onChange={(e) => setCustomItem(c => ({ ...c, unitPrice: e.target.value }))}
+                className="h-10 rounded-lg dark:bg-slate-900 dark:border-slate-700"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <Label htmlFor="custom-qty" className="text-sm font-bold text-slate-600 dark:text-slate-300">Quantity</Label>
+              <Input
+                id="custom-qty"
+                type="number"
+                min="1"
+                value={customItem.quantity}
+                onChange={(e) => setCustomItem(c => ({ ...c, quantity: e.target.value }))}
+                className="h-10 rounded-lg dark:bg-slate-900 dark:border-slate-700"
+              />
+            </div>
+          </div>
+          <DialogFooter className="border-t border-slate-200 dark:border-slate-800">
+            <Button variant="outline" onClick={() => setShowCustomDialog(false)} className="rounded-xl dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</Button>
+            <Button
+              onClick={() => {
+                const name = customItem.name.trim();
+                const price = parseFloat(customItem.unitPrice);
+                const qty = parseInt(customItem.quantity);
+                if (!name) {
+                  showError('Name is required');
+                  return;
+                }
+                if (isNaN(price) || price <= 0) {
+                  showError('Enter a valid price');
+                  return;
+                }
+                if (isNaN(qty) || qty < 1) {
+                  showError('Enter a valid quantity');
+                  return;
+                }
+                const manualProd: Product = {
+                  id: `manual-${Date.now()}`,
+                  sku: '',
+                  name,
+                  category: '',
+                  price,
+                  costPrice: price,
+                  stockQuantity: 0,
+                  refillThreshold: 0,
+                  unit: '',
+                  discountPercentage: 0,
+                  barcodeUrl: undefined,
+                };
+                const discountAmount = 0;
+                const finalPrice = price;
+                setCart(prev => [...prev, { ...manualProd, quantity: qty, finalPrice, discountAmount }]);
+                setShowCustomDialog(false);
+                setCustomItem({ name: '', unitPrice: '', quantity: '1' });
+                showSuccess(`Added ${name}`);
+              }}
+              className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl px-6 font-bold"
+            >
+              Add Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Print Bill Prompt */}
       <Dialog open={showPrintPrompt} onOpenChange={setShowPrintPrompt}>
-        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto dark:bg-slate-900 dark:border-slate-800">
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto dark:border-slate-800" style={{ backgroundColor: '#ffffff', color: '#0f172a' }}>
           <DialogHeader>
             <DialogTitle className="text-2xl font-black text-center text-slate-900 dark:text-slate-100">Transaction Successful</DialogTitle>
           </DialogHeader>

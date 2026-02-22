@@ -1,19 +1,41 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, PackagePlus, ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types/grocery';
+import { hasPermission } from '@/utils/permissions';
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
 
 interface RefillListProps {
   products: Product[];
 }
 
 const RefillList = ({ products }: RefillListProps) => {
+  const canCreateOrder = hasPermission('refill','view');
   // Filter products where stock is at or below their specific threshold
   const lowStockProducts = products.filter(p => p.stockQuantity <= p.refillThreshold);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState('');
+
+  const handleCreateOrder = (product: Product) => {
+    const supplierPhone = product.supplier?.mobileNumber || product.supplier?.whatsAppNumber;
+    if (supplierPhone && supplierPhone.trim() !== '') {
+      setDialogMessage(`Supplier number: ${supplierPhone}`);
+    } else {
+      setDialogMessage('Supplier number not available');
+    }
+    setDialogOpen(true);
+  };
 
   if (lowStockProducts.length === 0) {
     return (
@@ -56,14 +78,29 @@ const RefillList = ({ products }: RefillListProps) => {
             
             <div className="mb-6">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{product.name}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest font-bold">{product.category} • SKU: {product.sku}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400uppercase tracking-widest font-bold">{product.category} • SKU: {product.sku}</p>
             </div>
 
-            <Button className="w-full bg-slate-900 hover:bg-black dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl group">
-              Create Purchase Order <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
+            {canCreateOrder && (
+              <Button onClick={() => handleCreateOrder(product)} className="w-full bg-slate-900 hover:bg-black dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl group">
+                Create Purchase Order <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            )}
           </Card>
         ))}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Purchase Order</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p>{dialogMessage}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );

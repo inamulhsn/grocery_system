@@ -87,7 +87,7 @@ const ActivityLogs = ({ logs, onRevertLog }: ActivityLogsProps) => {
                     <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                       <Clock size={14} className="text-slate-400 dark:text-slate-500" />
                       <span className="text-sm font-medium">
-                        {new Date(log.timestamp).toLocaleString()}
+                        {new Date(log.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Colombo' })}
                       </span>
                     </div>
                   </td>
@@ -110,7 +110,7 @@ const ActivityLogs = ({ logs, onRevertLog }: ActivityLogsProps) => {
                   <td className="px-6 py-4">
                     <p className="text-sm text-slate-600 dark:text-slate-300 font-medium">{log.details}</p>
                     {log.revertedAt && (
-                      <span className="inline-block mt-1 text-xs text-slate-400 dark:text-slate-500">Reverted {new Date(log.revertedAt).toLocaleString()}</span>
+                      <span className="inline-block mt-1 text-xs text-slate-400 dark:text-slate-500">Reverted {new Date(log.revertedAt).toLocaleString('en-US', { timeZone: 'Asia/Colombo' })}</span>
                     )}
                   </td>
                   {onRevertLog && (

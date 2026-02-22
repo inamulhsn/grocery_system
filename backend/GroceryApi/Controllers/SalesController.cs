@@ -44,6 +44,60 @@ namespace GroceryApi.Controllers
             return Ok(total);
         }
 
+        // Return both total revenue and count of sales for today.
+        [HttpGet("daily-stats")]
+        public async Task<ActionResult<object>> GetDailyStats([FromQuery] string? date)
+        {
+            // We want stats calculated using Sri Lanka local day (UTC+5:30). The database stores
+            // CreatedAt in UTC. To correctly filter, compute the UTC range that corresponds to
+            // the SL calendar day and query by that range.
+            TimeZoneInfo slZone;
+            try
+            {
+                // Windows id
+                slZone = TimeZoneInfo.FindSystemTimeZoneById("Sri Lanka Standard Time");
+            }
+            catch
+            {
+                // Linux/macOS id
+                slZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Colombo");
+            }
+
+            DateTime targetLocal;
+            if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var parsed))
+            {
+                // interpret provided date as Sri Lanka local
+                targetLocal = parsed.Date;
+            }
+            else
+            {
+                targetLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, slZone).Date;
+            }
+
+            // compute the corresponding UTC bounds
+            var startUtc = TimeZoneInfo.ConvertTimeToUtc(targetLocal, slZone);
+            var endUtc = startUtc.AddDays(1);
+
+            var todaysSalesQuery = _context.Sales
+                .Where(s => s.CreatedAt >= startUtc && s.CreatedAt < endUtc);
+
+            var total = await todaysSalesQuery.SumAsync(s => s.TotalAmount);
+            var count = await todaysSalesQuery.CountAsync();
+
+            // calculate profit by joining items with product cost prices
+            // profit = sum(item.TotalPrice - product.CostPrice * item.Quantity)
+            // compute profit joining only when product exists (skip manual items)
+            var profit = await todaysSalesQuery
+                .SelectMany(s => s.Items)
+                .Join(_context.Products,
+                      item => item.ProductId,
+                      prod => prod.Id,
+                      (item, prod) => new { item, prod })
+                .SumAsync(x => x.item.TotalPrice - x.prod.CostPrice * x.item.Quantity);
+
+            return Ok(new { total, count, profit });
+        }
+
 
         // POST: api/Sales
         [HttpPost]
@@ -60,7 +114,8 @@ namespace GroceryApi.Controllers
                 }
 
                 // 1. Save the Sale
-                sale.CreatedAt = DateTime.UtcNow;
+                // Ensure CreatedAt is in UTC and properly marked
+                sale.CreatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
                 _context.Sales.Add(sale);
 
                 // 2. Process Items and Deduct Stock
@@ -71,15 +126,19 @@ namespace GroceryApi.Controllers
                         return BadRequest("Each sale item must have a valid ProductId.");
                     }
 
-                    // Find the product in the database
+                    // Find the product in the database. Manual items use a synthetic id and
+                    // won't exist; in that case we simply skip stock checks and leave the
+                    // sale item as-is. The price/name are already carried in the item.
                     var product = await _context.Products.FindAsync(item.ProductId);
 
                     if (product == null)
                     {
-                        return BadRequest($"Product not found for item with ProductId: {item.ProductId}");
+                        // treat as custom/manual line; don't deduct stock
+                        item.SaleId = sale.Id;
+                        continue; // move to next item
                     }
 
-                    // Check stock
+                    // Check stock for real products
                     if (product.StockQuantity < item.Quantity)
                     {
                         return BadRequest($"Insufficient stock for item: {product.Name}");

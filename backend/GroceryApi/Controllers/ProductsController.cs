@@ -23,7 +23,10 @@ namespace GroceryApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            return await _context.Products.ToListAsync();
+            // include supplier information so client can display names
+            return await _context.Products
+                .Include(p => p.Supplier)
+                .ToListAsync();
         }
 
         // POST: api/Products

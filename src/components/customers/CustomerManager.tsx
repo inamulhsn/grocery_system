@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserPlus, Trash2, Edit2, Phone, MessageCircle } from 'lucide-react';
+import { hasPermission } from '@/utils/permissions';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,13 @@ import { showSuccess, showError } from '@/utils/toast';
 import { api } from '@/utils/api';
 
 const CustomerManager = () => {
+  const canView = hasPermission('customers','view');
+  const canCreate = hasPermission('customers','create');
+  const canEdit = hasPermission('customers','edit');
+  const canDelete = hasPermission('customers','delete');
+  if (!canView) {
+    return <div className="p-10 text-center text-red-600 dark:text-red-400">Access denied</div>;
+  }
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -114,9 +122,11 @@ const CustomerManager = () => {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Customers</h2>
           <p className="text-slate-500 dark:text-slate-400">Manage customer contacts (name, email, address, mobile &amp; WhatsApp)</p>
         </div>
-        <Button onClick={openAdd} className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl">
-          <UserPlus className="mr-2" size={18} /> Add Customer
-        </Button>
+        {canCreate && (
+          <Button onClick={openAdd} className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl">
+            <UserPlus className="mr-2" size={18} /> Add Customer
+          </Button>
+        )} 
       </div>
 
       <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
@@ -152,12 +162,16 @@ const CustomerManager = () => {
                       {c.whatsAppNumber ? <><MessageCircle size={12} className="text-green-500" /> {c.whatsAppNumber}</> : '—'}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
-                        <Edit2 size={16} />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(c)} className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
-                        <Trash2 size={16} />
-                      </Button>
+                      {canEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(c)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
+                          <Edit2 size={16} />
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(c)} className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                          <Trash2 size={16} />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -249,7 +263,11 @@ const CustomerManager = () => {
           </div>
           <DialogFooter className="border-t border-slate-200 dark:border-slate-800">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</Button>
-            <Button onClick={handleSave} className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white">Save</Button>
+            <Button
+              onClick={handleSave}
+              disabled={editingCustomer ? !canEdit : !canCreate}
+              className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -6,6 +6,7 @@ import {
   ShoppingCart, Package, Settings, TrendingUp, Receipt, 
   ClipboardList, LogOut, ShieldCheck, DollarSign, BarChart3, History, Users, Truck
 } from 'lucide-react';
+import { hasSectionAccess, hasPermission } from '@/utils/permissions';
 import POSInterface from '@/components/pos/POSInterface';
 import InventoryManager from '@/components/inventory/InventoryManager';
 import UserManagement from '@/components/admin/UserManagement';
@@ -28,6 +29,7 @@ const Index = () => {
   
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [dailyStats, setDailyStats] = useState<{ total: number; count: number; profit?: number }>({ total: 0, count: 0 });
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [branding, setBranding] = useState<SystemSettings>({ systemName: 'GroceryPro', logoUrl: '' });
 
@@ -43,13 +45,15 @@ const Index = () => {
         api.getProducts(),
         api.getSales(),
         api.getBranding(),
-        isAdmin ? api.getActivityLogs() : Promise.resolve([] as ActivityLog[])
+        isAdmin ? api.getActivityLogs() : Promise.resolve([] as ActivityLog[]),
+        api.getDailyStats(new Date())
       ] as const;
-      const [productsData, salesData, brandingData, logsData] = await Promise.all(promises);
+      const [productsData, salesData, brandingData, logsData, statsData] = await Promise.all(promises);
       setProducts(productsData || []);
       setSales(salesData || []);
       setLogs(logsData || []);
       if (brandingData) setBranding(brandingData);
+      if (statsData) setDailyStats(statsData);
     } catch (error) {
       console.error("Failed to load data:", error);
       showError("Connection to server failed.");
@@ -66,28 +70,35 @@ const Index = () => {
     loadData();
   }, [currentUser, navigate]);
 
+  // profit is now returned by the server; fall back to client computation if missing
   const stats = useMemo(() => {
-    const today = new Date().toDateString();
-    const todaysSales = sales.filter(s => new Date(s.createdAt).toDateString() === today);
-    
-    let grossTotal = 0;
-    let netProfit = 0;
+    const { total: grossTotal, count, profit } = dailyStats;
+    console.log('[stats] dailyStats:', dailyStats, 'profit:', profit);
+    let netProfit = profit ?? 0;
 
-    todaysSales.forEach(sale => {
-      grossTotal += sale.totalAmount;
-      
-      sale.items.forEach(item => {
-        const product = products.find(p => p.id === item.productId);
-        if (product) {
-          const cost = product.costPrice * item.quantity;
-          const revenue = item.totalPrice;
-          netProfit += (revenue - cost);
-        }
+    if (!profit && profit !== 0) {
+      // calculate profit manually using product cost if server didn't provide it
+      console.log('[stats] profit is falsy, computing client-side');
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' });
+      const todaysSales = sales.filter(s => {
+        const saleLocal = new Date(s.createdAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Colombo' });
+        return saleLocal === today;
       });
-    });
+      todaysSales.forEach(sale => {
+        sale.items.forEach(item => {
+          const product = products.find(p => p.id === item.productId);
+          if (product) {
+            const cost = product.costPrice * item.quantity;
+            const revenue = item.totalPrice;
+            netProfit += (revenue - cost);
+          }
+        });
+      });
+      console.log('[stats] client-computed profit:', netProfit);
+    }
 
-    return { grossTotal, netProfit };
-  }, [sales, products]);
+    return { grossTotal, netProfit, count };
+  }, [dailyStats, sales, products]);
 
   const handleCompleteSale = async (newSale: Sale) => {
     try {
@@ -127,17 +138,6 @@ const Index = () => {
     navigate('/login');
   };
 
-  // Check if user has view access to a section
-  const hasAccess = (section: keyof UserPermissions) => {
-    if (currentUser?.role === 'admin') return true;
-    return currentUser?.permissions?.[section]?.view ?? false;
-  };
-
-  // Check if user has specific permission (view/create/edit/delete) for a section
-  const hasPermission = (section: keyof UserPermissions, action: 'view' | 'create' | 'edit' | 'delete') => {
-    if (currentUser?.role === 'admin') return true;
-    return currentUser?.permissions?.[section]?.[action] ?? false;
-  };
 
   if (loading) return <div className="p-10 text-center font-bold text-slate-400 dark:text-slate-500 animate-pulse">Initializing Secure Terminal...</div>;
 
@@ -162,7 +162,7 @@ const Index = () => {
               <div className="hidden lg:flex items-center gap-6 px-4 border-r border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col items-end">
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-black tracking-widest flex items-center gap-1">
-                    <DollarSign size={10} /> Today's Gross
+                    <DollarSign size={10} /> Today's Gross (DB)
                   </span>
                   <span className="text-sm font-black text-slate-900 dark:text-slate-100">
                     LKR {stats.grossTotal.toFixed(2)}
@@ -174,6 +174,14 @@ const Index = () => {
                   </span>
                   <span className="text-lg font-black text-emerald-600">
                     LKR {stats.netProfit.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-black tracking-widest flex items-center gap-1">
+                    <Receipt size={10} /> Today's Sales
+                  </span>
+                  <span className="text-sm font-black text-slate-900 dark:text-slate-100">
+                    {stats.count}
                   </span>
                 </div>
               </div>
@@ -195,25 +203,25 @@ const Index = () => {
       </header>
 
       <main className="max-w-[1600px] mx-auto p-6">
-        <Tabs defaultValue={hasAccess('pos') ? "pos" : "inventory"} className="space-y-6">
+        <Tabs defaultValue={hasSectionAccess('pos') ? "pos" : "inventory"} className="space-y-6">
           <TabsList className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 h-12 rounded-xl shadow-sm overflow-x-auto max-w-full justify-start">
-            {hasAccess('pos') && (
+            {hasSectionAccess('pos') && (
               <TabsTrigger value="pos" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><ShoppingCart className="mr-2" size={18} /> POS</TabsTrigger>
             )}
-            {hasAccess('analytics') && (
+            {hasSectionAccess('sales') && (
               <TabsTrigger value="sales" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Receipt className="mr-2" size={18} /> Sales</TabsTrigger>
             )}
-            {hasAccess('inventory') && (
+            {hasSectionAccess('inventory') && (
               <TabsTrigger value="inventory" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Package className="mr-2" size={18} /> Inventory</TabsTrigger>
             )}
-            {hasAccess('inventory') && (
+            {hasSectionAccess('refill') && (
               <TabsTrigger value="refill" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><ClipboardList className="mr-2" size={18} /> Refill</TabsTrigger>
             )}
             {/* Customers, Suppliers, Activity Logs, and Admin Panel are ADMIN ONLY */}
-            {currentUser?.role === 'admin' && (
+            {hasSectionAccess('customers') && (
               <TabsTrigger value="customers" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Users className="mr-2" size={18} /> Customers</TabsTrigger>
             )}
-            {currentUser?.role === 'admin' && (
+            {hasSectionAccess('suppliers') && (
               <TabsTrigger value="suppliers" className="rounded-lg px-6 text-slate-600 dark:text-slate-300 data-[state=active]:dark:text-slate-100 data-[state=active]:dark:bg-slate-800"><Truck className="mr-2" size={18} /> Suppliers</TabsTrigger>
             )}
             {currentUser?.role === 'admin' && (
@@ -224,38 +232,38 @@ const Index = () => {
             )}
           </TabsList>
 
-          {hasAccess('pos') && (
+          {hasSectionAccess('pos') && (
             <TabsContent value="pos" className="mt-0 outline-none">
               <POSInterface products={products} onCompleteSale={handleCompleteSale} />
             </TabsContent>
           )}
 
-          {hasAccess('analytics') && (
+          {hasSectionAccess('sales') && (
             <TabsContent value="sales" className="mt-0 outline-none">
               <SalesHistory sales={sales} />
             </TabsContent>
           )}
 
-          {hasAccess('inventory') && (
+          {hasSectionAccess('inventory') && (
             <TabsContent value="inventory" className="mt-0 outline-none">
               <InventoryManager products={products} onProductChanged={loadData} />
             </TabsContent>
           )}
 
-          {hasAccess('inventory') && (
+          {hasSectionAccess('refill') && (
             <TabsContent value="refill" className="mt-0 outline-none">
               <RefillList products={products} />
             </TabsContent>
           )}
 
-          {/* Admin-only sections */}
-          {currentUser?.role === 'admin' && (
+          {/* Configurable sections */}
+          {hasSectionAccess('customers') && (
             <TabsContent value="customers" className="mt-0 outline-none">
               <CustomerManager />
             </TabsContent>
           )}
 
-          {currentUser?.role === 'admin' && (
+          {hasSectionAccess('suppliers') && (
             <TabsContent value="suppliers" className="mt-0 outline-none">
               <SupplierManager />
             </TabsContent>

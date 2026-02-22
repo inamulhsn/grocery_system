@@ -10,8 +10,10 @@ export interface SectionPermissions {
 export interface UserPermissions {
   pos: SectionPermissions;
   inventory: SectionPermissions;
-  analytics: SectionPermissions;
-  admin: SectionPermissions;
+  sales: SectionPermissions;
+  refill: SectionPermissions;
+  customers: SectionPermissions;
+  suppliers: SectionPermissions;
 }
 
 export interface Profile {
@@ -38,6 +40,14 @@ export interface Product {
   unit: string;
   discountPercentage: number;
   barcodeUrl?: string;
+
+  // optional supplier info
+  supplierId?: string;
+  /** populated when API includes supplier relationship */
+  supplier?: Supplier;
+
+  /** encoded string stored in DB and used for barcode generation */
+  barcodeValue?: string;
 }
 
 export interface SaleItem {

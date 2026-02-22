@@ -9,7 +9,7 @@ namespace GroceryApi.Models
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         
         [Column(TypeName = "decimal(18,2)")]
         public decimal TotalAmount { get; set; }

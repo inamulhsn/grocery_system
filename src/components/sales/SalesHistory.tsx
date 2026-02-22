@@ -48,7 +48,7 @@ const SalesHistory = ({ sales }: SalesHistoryProps) => {
                       <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
                         <span className="flex items-center gap-1">
                           <Clock size={12} /> 
-                          {sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString() : 'N/A'}
+                          {sale.createdAt ? new Date(sale.createdAt).toLocaleTimeString('en-US', { timeZone: 'Asia/Colombo' }) : 'N/A'}
                         </span>
                         <span className="capitalize">• {sale.paymentMethod || 'Unknown'}</span>
                       </div>

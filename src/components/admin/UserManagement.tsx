@@ -24,13 +24,25 @@ const defaultSectionPerms: SectionPermissions = { view: false, create: false, ed
 const defaultPermissions: UserPermissions = {
   pos: { ...defaultSectionPerms, view: true },
   inventory: { ...defaultSectionPerms },
-  analytics: { ...defaultSectionPerms },
-  admin: { ...defaultSectionPerms }
+  sales: { ...defaultSectionPerms, view: true },
+  refill: { ...defaultSectionPerms },
+  customers: { ...defaultSectionPerms },
+  suppliers: { ...defaultSectionPerms }
 };
 
-// Only these sections are configurable per user. Admin Panel & Activity Logs are admin-only.
-const CONFIGURABLE_SECTIONS: Array<keyof UserPermissions> = ['pos', 'inventory', 'analytics'];
-const ROLE_OPTIONS: UserRole[] = ['admin', 'cashier', 'manager', 'hr'];
+// Only these sections are configurable per user. Activity Logs & main Admin Panel are admin-only.
+const CONFIGURABLE_SECTIONS: Array<keyof UserPermissions> = ['pos', 'inventory', 'sales', 'refill', 'customers', 'suppliers'];
+
+// Define which permission options each section supports
+const SECTION_PERMISSION_OPTIONS: Partial<Record<keyof UserPermissions, Array<keyof SectionPermissions>>> = {
+  sales: ['view'], // Sales: view only
+  refill: ['view'], // Refill: view only
+  customers: ['view', 'create', 'edit', 'delete'], // Customers: all four
+  suppliers: ['view', 'create', 'edit', 'delete'], // Suppliers: all four
+  pos: ['view', 'create', 'edit', 'delete'], // POS: all four
+  inventory: ['view', 'create', 'edit', 'delete'] // Inventory: all four
+};
+const ROLE_OPTIONS: UserRole[] = ['cashier', 'manager', 'hr'];
 
 interface UserManagementProps {
   branding: SystemSettings;
@@ -48,6 +60,7 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
     username: '',
     email: '',
     password: '',
+    phone_number: '',
     role: 'cashier' as UserRole,
     permissions: { ...defaultPermissions }
   });
@@ -72,6 +85,7 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
       username: '',
       email: '',
       password: '',
+      phone_number: '',
       role: 'cashier',
       permissions: { ...defaultPermissions }
     });
@@ -97,8 +111,10 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
         savedPerms = {
           pos: { ...defaultSectionPerms, ...(user.permissions.pos || {}) },
           inventory: { ...defaultSectionPerms, ...(user.permissions.inventory || {}) },
-          analytics: { ...defaultSectionPerms, ...(user.permissions.analytics || {}) },
-          admin: { ...defaultSectionPerms, ...(user.permissions.admin || {}) }
+          sales: { ...defaultSectionPerms, ...(user.permissions.sales || {}) },
+          refill: { ...defaultSectionPerms, ...(user.permissions.refill || {}) },
+          customers: { ...defaultSectionPerms, ...(user.permissions.customers || {}) },
+          suppliers: { ...defaultSectionPerms, ...(user.permissions.suppliers || {}) }
         };
       }
     }
@@ -108,32 +124,49 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
       savedPerms = {
         pos: { view: true, create: true, edit: true, delete: true },
         inventory: { view: true, create: true, edit: true, delete: true },
-        analytics: { view: true, create: true, edit: true, delete: true },
-        admin: { view: true, create: true, edit: true, delete: true }
+        sales: { view: true, create: true, edit: true, delete: true },
+        refill: { view: true, create: true, edit: true, delete: true },
+        customers: { view: true, create: true, edit: true, delete: true },
+        suppliers: { view: true, create: true, edit: true, delete: true }
       };
     }
 
     setFormData({
-      full_name: user.full_name || '',
+      full_name: user.fullName || user.full_name || '',
       username: user.username || '',
       email: user.email || '',
       password: '', // Don't populate password for security
+      phone_number: user.phone_number || '',
       role: (user.role as UserRole) || 'cashier',
       permissions: savedPerms
     });
     setIsDialogOpen(true);
   };
 
+  // Simple email validation
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSave = async () => {
     try {
+      // Validate email if provided
+      if (formData.email.trim() && !isValidEmail(formData.email.trim())) {
+        showError("Please enter a valid email address.");
+        return;
+      }
+
       // If admin role, ensure all permissions are true
       let finalPermissions = { ...formData.permissions };
       if (formData.role === 'admin') {
         finalPermissions = {
           pos: { view: true, create: true, edit: true, delete: true },
           inventory: { view: true, create: true, edit: true, delete: true },
-          analytics: { view: true, create: true, edit: true, delete: true },
-          admin: { view: true, create: true, edit: true, delete: true }
+          sales: { view: true, create: true, edit: true, delete: true },
+          refill: { view: true, create: true, edit: true, delete: true },
+          customers: { view: true, create: true, edit: true, delete: true },
+          suppliers: { view: true, create: true, edit: true, delete: true }
         };
       }
 
@@ -144,7 +177,7 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
         fullName: formData.full_name.trim(),
         role: formData.role,
         permissionsJson: JSON.stringify(finalPermissions),
-        phone_number: '' // Add phone_number field
+        phone_number: formData.phone_number.trim()
       };
 
       // Only include password if provided (for new users or password changes)
@@ -213,10 +246,10 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
               <div className="flex justify-between items-start">
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-lg">
-                    {(user.full_name || 'User').split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase()}
+                    {(user.fullName || 'User').split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100">{user.full_name || 'Unnamed User'}</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100">{user.fullName || 'Unnamed User'}</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">@{user.username}</p>
                     <Badge className="mt-2 capitalize bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800">{user.role}</Badge>
                   </div>
@@ -266,13 +299,19 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-700 dark:text-slate-300">Email</Label>
-                <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
+                <Label className="text-slate-700 dark:text-slate-300">Email (optional)</Label>
+                <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="user@example.com" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
+                <p className="text-xs text-slate-500 dark:text-slate-400">Must be a valid email format if provided</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-700 dark:text-slate-300">Password</Label>
                 <Input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="Required for new, optional for edit" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-slate-700 dark:text-slate-300">Phone Number</Label>
+              <Input value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} placeholder="+94 77 123 4567" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
             </div>
 
             <div className="space-y-2">
@@ -295,31 +334,34 @@ const UserManagement = ({ branding, onUpdateBranding, currentUser, onUpdateAdmin
                   Admin role has full access to all sections, including <strong>Admin Panel</strong> and <strong>Activity Logs</strong>. These are not configurable.
                 </p>
               )}
-              {CONFIGURABLE_SECTIONS.map((section) => (
-                <div key={section} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <Label className="capitalize font-black mb-3 block text-slate-800 dark:text-slate-200">{section}</Label>
-                  <div className="grid grid-cols-4 gap-4">
-                    {(['view', 'create', 'edit', 'delete'] as Array<keyof SectionPermissions>).map((action) => {
-                      const isChecked = formData.role === 'admin' ? true : (formData.permissions[section]?.[action] ?? false);
-                      return (
-                        <div key={action} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`${section}-${action}`} 
-                            checked={isChecked} 
-                            disabled={formData.role === 'admin'} 
-                            onCheckedChange={() => {
-                              if (formData.role !== 'admin') {
-                                togglePermission(section, action);
-                              }
-                            }} 
-                          />
-                          <Label htmlFor={`${section}-${action}`} className="capitalize text-xs cursor-pointer text-slate-700 dark:text-slate-300">{action}</Label>
-                        </div>
-                      );
-                    })}
+              {CONFIGURABLE_SECTIONS.map((section) => {
+                const allowedActions = SECTION_PERMISSION_OPTIONS[section] || ['view', 'create', 'edit', 'delete'];
+                return (
+                  <div key={section} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <Label className="capitalize font-black mb-3 block text-slate-800 dark:text-slate-200">{section}</Label>
+                    <div className={`grid gap-4 ${allowedActions.length === 1 ? 'grid-cols-1' : allowedActions.length === 2 ? 'grid-cols-2' : 'grid-cols-4'}`}>
+                      {allowedActions.map((action) => {
+                        const isChecked = formData.role === 'admin' ? true : (formData.permissions[section]?.[action] ?? false);
+                        return (
+                          <div key={action} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`${section}-${action}`} 
+                              checked={isChecked} 
+                              disabled={formData.role === 'admin'} 
+                              onCheckedChange={() => {
+                                if (formData.role !== 'admin') {
+                                  togglePermission(section, action as keyof SectionPermissions);
+                                }
+                              }} 
+                            />
+                            <Label htmlFor={`${section}-${action}`} className="capitalize text-xs cursor-pointer text-slate-700 dark:text-slate-300">{action}</Label>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           <DialogFooter className="border-t border-slate-200 dark:border-slate-800">

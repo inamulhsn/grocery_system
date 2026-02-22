@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Package, Plus, Search, Barcode, Edit3, Trash2, Percent, Box, AlertCircle } from 'lucide-react';
+import { hasPermission } from '@/utils/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -15,7 +16,7 @@ import {
   DialogTitle, 
   DialogFooter
 } from "@/components/ui/dialog";
-import { Product } from '@/types/grocery';
+import { Product, Supplier } from '@/types/grocery';
 import BarcodeGenerator from './BarcodeGenerator';
 import { showError, showSuccess } from '@/utils/toast';
 import { api } from '@/utils/api';
@@ -26,10 +27,25 @@ interface InventoryManagerProps {
 }
 
 const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps) => {
+  // permissions for this section
+  const canView = hasPermission('inventory', 'view');
+  const canCreate = hasPermission('inventory', 'create');
+  const canEdit = hasPermission('inventory', 'edit');
+  const canDelete = hasPermission('inventory', 'delete');
+
+  if (!canView) {
+    return (
+      <div className="p-10 text-center text-red-600 dark:text-red-400">
+        You do not have permission to view inventory.
+      </div>
+    );
+  }
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -40,7 +56,9 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
     stockQuantity: 0,
     refillThreshold: 10,
     unit: 'pcs',
-    discountPercentage: 0
+    discountPercentage: 0,
+    supplierId: undefined,
+    barcodeValue: ''
   });
 
   const filteredProducts = products.filter(p => {
@@ -49,6 +67,13 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
     const sku = (p.sku || '').toLowerCase();
     return name.includes(query) || sku.includes(query);
   });
+
+  // load suppliers once for dropdown
+  useEffect(() => {
+    api.getSuppliers().then(setSuppliers).catch(err => {
+      console.error('Failed to load suppliers', err);
+    });
+  }, []);
 
   const openAddDialog = () => {
     setEditingProduct(null);
@@ -61,7 +86,9 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
       stockQuantity: 0,
       refillThreshold: 10,
       unit: 'pcs',
-      discountPercentage: 0
+      discountPercentage: 0,
+      supplierId: undefined,
+      barcodeValue: ''
     });
     setIsDialogOpen(true);
   };
@@ -72,10 +99,19 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
     setIsDialogOpen(true);
   };
 
+  // keep barcode value in sync whenever related fields change
+  React.useEffect(() => {
+    const supplierName = suppliers.find(s => s.id === formData.supplierId)?.name || '';
+    const barcodeVal = `${formData.sku || ''}|${formData.name || ''}|${formData.price || 0}|${formData.category || ''}|${supplierName}`;
+    setFormData(prev => ({ ...prev, barcodeValue: barcodeVal }));
+  }, [formData.sku, formData.name, formData.price, formData.category, formData.supplierId, suppliers]);
+
   const handleSave = async () => {
     try {
+      // ensure we populate the existing `barcodeUrl` text column with our generated barcode text
       const productToSave = {
         ...formData,
+        barcodeUrl: (formData.barcodeValue as string) || (formData.barcodeUrl as string) || '',
         id: editingProduct ? editingProduct.id : undefined,
       } as Product;
 
@@ -113,9 +149,11 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button onClick={openAddDialog} className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 hover:bg-primary/90 text-white rounded-xl px-6">
-          <Plus className="mr-2" size={18} /> Add New Product
-        </Button>
+        {canCreate && (
+          <Button onClick={openAddDialog} className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 hover:bg-primary/90 text-white rounded-xl px-6">
+            <Plus className="mr-2" size={18} /> Add New Product
+          </Button>
+        )} 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -124,6 +162,8 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
             <TableHeader className="bg-slate-50 dark:bg-slate-800/80">
               <TableRow className="border-slate-200 dark:border-slate-700">
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Product</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Supplier</TableHead>
+                <TableHead className="font-bold text-slate-700 dark:text-slate-300">Barcode</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Available Stock</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Price</TableHead>
                 <TableHead className="font-bold text-slate-700 dark:text-slate-300">Discount</TableHead>
@@ -159,6 +199,14 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
                         <p className="font-bold text-slate-800 dark:text-slate-100">{product.name || 'Unnamed Product'}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{product.sku || 'N/A'} • {product.category || 'Uncategorized'}</p>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-slate-600 dark:text-slate-300">
+                        {product.supplier?.name || '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-slate-600 dark:text-slate-300 font-mono">{product.sku || '—'}</span>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
@@ -197,12 +245,16 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
                         <Button variant="ghost" size="icon" onClick={() => setSelectedProduct(product)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
                           <Barcode size={16} />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(product)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
-                          <Edit3 size={16} />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id, product)} className="text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
-                          <Trash2 size={16} />
-                        </Button>
+                        {canEdit && (
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(product)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
+                            <Edit3 size={16} />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(product.id, product)} className="text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -217,11 +269,68 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
             <Barcode className="text-primary dark:text-slate-400" size={20} /> Barcode Preview
           </h3>
           {selectedProduct ? (
-            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/50">
-              <BarcodeGenerator value={selectedProduct.sku} name={selectedProduct.name} />
+              <div ref={previewRef} className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-100 dark:border-slate-700 rounded-2xl bg-slate-50/30 dark:bg-slate-800/50">
+              <BarcodeGenerator 
+                value={selectedProduct.barcodeValue || selectedProduct.sku} 
+                name={selectedProduct.name}
+                sku={selectedProduct.sku}
+                price={selectedProduct.price}
+                category={selectedProduct.category}
+                supplier={selectedProduct.supplier?.name}
+              />
               <div className="mt-6 w-full space-y-2">
                 <Button className="w-full bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white" onClick={() => window.print()}>
                   Print Label
+                </Button>
+                <Button className="w-full bg-primary/80 text-white" onClick={async () => {
+                  // generate Base64 SVG from the rendered barcode in preview and save into product.barcodeUrl
+                  if (!selectedProduct.id) {
+                    showError('Save the product first to persist barcode');
+                    return;
+                  }
+
+                  try {
+                    const container = previewRef.current;
+                    if (!container) {
+                      showError('Barcode preview not found');
+                      return;
+                    }
+                    const svg = container.querySelector('svg');
+                    if (!svg) {
+                      showError('SVG barcode element not found in preview');
+                      return;
+                    }
+
+                    const svgString = new XMLSerializer().serializeToString(svg as SVGElement);
+                    const base64 = btoa(unescape(encodeURIComponent(svgString)));
+                    const dataUrl = `data:image/svg+xml;base64,${base64}`;
+
+                    const updated: Product = { ...selectedProduct, barcodeUrl: dataUrl } as Product;
+                    await api.saveProduct(updated);
+                    showSuccess('Barcode saved as Base64 in database');
+                    onProductChanged();
+                  } catch (err) {
+                    console.error(err);
+                    showError(err instanceof Error ? err.message : 'Failed to save barcode');
+                  }
+                }}>
+                  Save Barcode
+                </Button>
+                <Button className="w-full border border-slate-300" onClick={() => {
+                  // open small print window that shows only barcode + price
+                  const val = selectedProduct.barcodeValue || selectedProduct.sku || '';
+                  const price = selectedProduct.price != null ? `LKR ${selectedProduct.price.toFixed(2)}` : '';
+                  const win = window.open('', '_blank', 'width=400,height=300');
+                  if (!win) {
+                    showError('Unable to open print window');
+                    return;
+                  }
+                  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Print Barcode</title><style>body{font-family:Arial,Helvetica,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px} .price{font-weight:700;margin-top:10px} </style></head><body><div id="barcode"></div><div class="price">${price}</div><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script><script>const svg = document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('id','barcodeSvg'); document.getElementById('barcode').appendChild(svg); JsBarcode('#barcodeSvg', ${JSON.stringify(val)}, {format:'CODE128',displayValue:true,width:2,height:60,margin:10}); window.onload = () => { setTimeout(()=>{ window.print(); window.onafterprint = ()=>{ window.close(); } }, 250); };</script></body></html>`;
+                  win.document.open();
+                  win.document.write(html);
+                  win.document.close();
+                }}>
+                  Print Barcode Only
                 </Button>
                 <Button variant="outline" className="w-full dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800" onClick={() => setSelectedProduct(null)}>
                   Clear Selection
@@ -252,6 +361,10 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
                 <Label className="text-slate-700 dark:text-slate-300">SKU / Barcode</Label>
                 <Input value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="GR-001" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
               </div>
+              <div className="space-y-2">
+                <Label className="text-slate-700 dark:text-slate-300">Barcode Text</Label>
+                <Input value={formData.barcodeValue || ''} readOnly className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
+              </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -263,6 +376,20 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
                 <Label className="text-slate-700 dark:text-slate-300">Unit (kg, pcs, etc.)</Label>
                 <Input value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} placeholder="pcs" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100" />
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-slate-700 dark:text-slate-300">Supplier</Label>
+              <select
+                value={formData.supplierId || ''}
+                onChange={e => setFormData({...formData, supplierId: e.target.value || undefined})}
+                className="w-full px-3 py-2 border rounded dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+              >
+                <option value="">-- none --</option>
+                {suppliers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -293,7 +420,11 @@ const InventoryManager = ({ products, onProductChanged }: InventoryManagerProps)
           </div>
           <DialogFooter className="border-t border-slate-200 dark:border-slate-800">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</Button>
-            <Button onClick={handleSave} className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white">
+            <Button
+            onClick={handleSave}
+            disabled={editingProduct ? !canEdit : !canCreate}
+            className="bg-primary dark:bg-slate-700 dark:hover:bg-slate-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
               {editingProduct ? 'Update Product' : 'Add to Inventory'}
             </Button>
           </DialogFooter>

@@ -11,7 +11,7 @@ namespace GroceryApi.Models
         public string UserName { get; set; }
         public string Action { get; set; }
         public string Details { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public DateTime Timestamp { get; set; } = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
         /// <summary>Entity type for revert: Product, Sale, User, SystemSettings.</summary>
         public string EntityType { get; set; }
         /// <summary>Id of the entity (for create/update/delete lookup).</summary>

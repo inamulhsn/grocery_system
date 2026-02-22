@@ -136,7 +136,7 @@ namespace GroceryApi.Controllers
                         break;
                 }
 
-                log.RevertedAt = DateTime.UtcNow;
+                log.RevertedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
                 await _context.SaveChangesAsync();
                 return NoContent();
             }

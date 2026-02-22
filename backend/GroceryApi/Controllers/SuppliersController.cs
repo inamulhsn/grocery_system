@@ -22,7 +22,14 @@ namespace GroceryApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Supplier>>> GetSuppliers()
         {
-            return await _context.Suppliers.ToListAsync();
+            try
+            {
+                return await _context.Suppliers.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching suppliers", detail = ex.Message });
+            }
         }
 
         [HttpGet("{id}")]

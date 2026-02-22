@@ -4,11 +4,8 @@ import { Product, Sale, SystemSettings, Profile, ActivityLog, Customer, Supplier
 
 const API_URL = '/api';
 
-// Helper to get current user from localStorage
-const getCurrentUser = () => {
-  const saved = localStorage.getItem('grocery_user');
-  return saved ? JSON.parse(saved) : { username: 'system', full_name: 'System' };
-};
+// pull current user helper out to shared module so permission helpers can also reuse it
+import { getCurrentUser } from './auth';
 
 /**
  * Safely parses JSON from a fetch response.
@@ -71,8 +68,8 @@ export const api = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user.id || '0',
-          userName: user.full_name || user.username,
+          userId: user?.id || '0',
+          userName: user?.full_name || user?.username || 'system',
           action,
           details,
           timestamp: new Date().toISOString(),
@@ -136,7 +133,7 @@ export const api = {
   },
 
   updateUser: async (userData: Partial<Profile> & { id: string; permissionsJson?: string }): Promise<void> => {
-    const name = userData.full_name ?? userData.username;
+    const name = userData.fullName ?? userData.full_name ?? userData.username;
     const response = await fetch(`${API_URL}/users/${userData.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -330,6 +327,28 @@ export const api = {
       });
     }
     return newSale;
+  },
+
+  // fetch daily revenue/count stats computed by server
+  getDailyStats: async (forDate?: Date): Promise<{ total: number; count: number; profit?: number }> => {
+    // optional date parameter to align with client timezone
+    let url = `${API_URL}/sales/daily-stats`;
+    if (forDate) {
+      const isoDate = forDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      url += `?date=${encodeURIComponent(isoDate)}`;
+    }
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch daily stats');
+    const raw = await safeJson(res);
+    console.log('[getDailyStats] Server response:', raw);
+    return typeof raw === 'object' && raw !== null
+      ? {
+          total: Number((raw as any).total) ?? 0,
+          count: Number((raw as any).count) ?? 0,
+          profit: (raw as any).profit != null ? Number((raw as any).profit) : 0
+        }
+      : { total: 0, count: 0, profit: 0 };
   },
 
   // --- SETTINGS ---

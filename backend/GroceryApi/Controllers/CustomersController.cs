@@ -24,7 +24,15 @@ namespace GroceryApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Customer>>> GetCustomers()
         {
-            return await _context.Customers.ToListAsync();
+            try
+            {
+                return await _context.Customers.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                // return detailed error for debugging
+                return StatusCode(500, new { message = "Error fetching customers", detail = ex.Message });
+            }
         }
 
         [HttpGet("by-phone/{phone}")]

@@ -11,10 +11,13 @@ interface ReceiptProps {
 }
 
 const Receipt = ({ sale, branding, cashReceived, balance }: ReceiptProps) => {
-  const dateStr = new Date(sale.createdAt).toLocaleString();
+  const dateStr = new Date(sale.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Colombo' });
 
   return (
-    <div className="receipt-container bg-white dark:bg-slate-800 dark:border-slate-700 p-6 text-slate-900 dark:text-slate-100 font-mono text-sm max-w-[350px] mx-auto border border-slate-200 shadow-sm">
+    <div
+      className="receipt-container p-6 font-mono text-sm max-w-[350px] mx-auto border border-slate-200 shadow-sm"
+      style={{ backgroundColor: '#ffffff', color: '#0f172a' }}
+    >
       {/* Header */}
       <div className="text-center mb-6 space-y-2">
         {branding.logoUrl && (
@@ -97,6 +100,13 @@ const Receipt = ({ sale, branding, cashReceived, balance }: ReceiptProps) => {
       </div>
 
       <style>{`
+        /* Force white preview inside app (override dark theme) */
+        .receipt-container, .receipt-container * {
+          background: transparent !important;
+          color: #0f172a !important;
+        }
+        .receipt-container { background: #ffffff !important; }
+
         @media print {
           body * { visibility: hidden; }
           .receipt-container, .receipt-container * { visibility: visible; }
@@ -104,18 +114,14 @@ const Receipt = ({ sale, branding, cashReceived, balance }: ReceiptProps) => {
             background: white !important;
             color: #0f172a !important;
             border: none !important;
-          }
-          .receipt-container * { color: inherit; }
-          .receipt-container th, .receipt-container td, .receipt-container p, .receipt-container span { color: #0f172a !important; }
-          .receipt-container .text-slate-400, .receipt-container .text-slate-500, .receipt-container .text-slate-600 { color: #475569 !important; }
-          .receipt-container [class*="bg-slate"] { background: #0f172a !important; }
-          .receipt-container {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
             box-shadow: none;
           }
+          .receipt-container * { color: inherit !important; }
+          .receipt-container th, .receipt-container td, .receipt-container p, .receipt-container span { color: #0f172a !important; }
         }
       `}</style>
     </div>
